@@ -8,7 +8,8 @@ async fn main() {
     let bot = Bot::from_env();
 
     teloxide::repl(bot, |bot: Bot, msg: Message| async move {
-        bot.send_dice(msg.chat.id).await?;
+        let query = msg.text().unwrap_or_default();
+        bot.send_message(msg.chat.id, format!("Why do you say {query}?")).await?;
         Ok(())
     })
     .await;
