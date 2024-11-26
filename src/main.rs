@@ -63,6 +63,11 @@ lazy_static::lazy_static! {
     static ref CONFIG: Config = confy::load_path("kmail-alias.toml").expect("Failed to load config");
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct AddAlias {
+    alias: String,
+}
+
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
@@ -186,6 +191,12 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
     Ok(())
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct AddAliasResult {
+    result: String,
+    data: bool
+}
+
 async fn receive_alias_description(
     bot: Bot,
     dialogue: MyDialogue,
@@ -204,11 +215,39 @@ async fn receive_alias_description(
                 description,
             )
                .await?;
-            bot.send_message(
-                dialogue.chat_id(),
-                "Not implemented.",
-            )
-               .await?;
+
+            // Add an alias
+            // https://developer.infomaniak.com/docs/api/post/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases
+            let client = reqwest::Client::new();
+            let token = &CONFIG.kmail_token;
+            let mail_id = &CONFIG.mail_hosting_id;
+            let mailbox_name = &CONFIG.mailbox_name;
+            // TODO: handle errors
+            let resp = client.post(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
+                             .json(&AddAlias { alias: alias_name })
+                             .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
+                             .send()
+                             .await.expect("Failed to send request")
+                                   .json::<AddAliasResult>()
+                .await.expect("Failed to parse response");
+
+            log::info!("Response: {:?}", resp);
+
+            if resp.result == "success" {
+                bot.send_message(
+                    dialogue.chat_id(),
+                    "Alias added successfully.",
+                )
+                   .await?;
+            } else {
+                bot.send_message(
+                    dialogue.chat_id(),
+                    "Failed to add alias.",
+                )
+                   .await?;
+            }
+            // TODO: send a test e-mail with the description
+
             dialogue.exit().await?;
         }
         None => {
