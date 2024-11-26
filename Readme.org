@@ -5,13 +5,13 @@
   parameters, like the account id and/or domain name.
 - [ ] Get the owner TG handle from a config file, and communicate only with the
   owner.
-- [ ] ~/add~ command to create an alias
+- [-] ~/add~ command to create an alias
   - Accepts alias name (before '@' part) description (purpose)
   - [X] Invokes the POST API to add the alias
   - [ ] In addition to creating the alias, also sends a test e-mail to the newly
     created address, with the provided description. this surves a double purpose of
     documenting the alias itself
 - [X] ~/list~ command to list all the aliases
-- [ ] ~/remove~ command to remove an alias
+- [X] ~/remove~ command to remove an alias
 - [ ] A docker container and a sample docker-compose file to conveniently deploy
   the bot on a NAS container station.

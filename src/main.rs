@@ -160,12 +160,54 @@ async fn invalid_state(bot: Bot, msg: Message) -> HandlerResult {
     Ok(())
 }
 
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ErrorResponse {
+    code: String,
+    description: String,
+    errors: Vec<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ManipulateAliasResult {
+    result: String,
+    data: Option<bool>,
+    error: Option<ErrorResponse>,
+}
+
 async fn receive_alias_name_for_removal(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
             // TODO: validation: matches one of the existing aliases
             bot.send_message(msg.chat.id, format!("Removing alias {alias_name}@example.com")).await?;
-            bot.send_message(msg.chat.id, "Not implemented").await?;
+            // Delete an alias
+            // https://developer.infomaniak.com/docs/api/delete/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases/%7Balias%7D
+            let client = reqwest::Client::new();
+            let token = &CONFIG.kmail_token;
+            let mail_id = &CONFIG.mail_hosting_id;
+            let mailbox_name = &CONFIG.mailbox_name;
+            // TODO: handle errors
+            let resp = client.delete(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases/{alias_name}"))
+                             .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
+                             .send()
+                             .await.expect("Failed to send request")
+                                   .json::<ManipulateAliasResult>()
+                .await.expect("Failed to parse response");
+            log::info!("Response: {:?}", resp);
+            if resp.result == "success" {
+                bot.send_message(
+                    dialogue.chat_id(),
+                    "Alias removed successfully.",
+                )
+                   .await?;
+            } else {
+                let error = resp.error.unwrap().description;
+                bot.send_message(
+                    dialogue.chat_id(),
+                    format!("Failed to remove alias: {error}"),
+                )
+                   .await?;
+            }
             dialogue.exit().await?;
         }
         None => {
@@ -190,20 +232,6 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
     }
 
     Ok(())
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ErrorResponse {
-    code: String,
-    description: String,
-    errors: Vec<serde_json::Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct AddAliasResult {
-    result: String,
-    data: Option<bool>,
-    error: Option<ErrorResponse>,
 }
 
 async fn receive_alias_description(
@@ -237,7 +265,7 @@ async fn receive_alias_description(
                              .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
                              .send()
                              .await.expect("Failed to send request")
-                                   .json::<AddAliasResult>()
+                                   .json::<ManipulateAliasResult>()
                 .await.expect("Failed to parse response");
 
             log::info!("Response: {:?}", resp);
