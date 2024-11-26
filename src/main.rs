@@ -7,6 +7,7 @@ use reqwest;
 use serde::{Serialize, Deserialize};
 use lazy_static;
 use confy;
+use serde_json;
 
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -192,9 +193,17 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ErrorResponse {
+    code: String,
+    description: String,
+    errors: Vec<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct AddAliasResult {
     result: String,
-    data: bool
+    data: Option<bool>,
+    error: Option<ErrorResponse>,
 }
 
 async fn receive_alias_description(
@@ -240,9 +249,10 @@ async fn receive_alias_description(
                 )
                    .await?;
             } else {
+                let error = resp.error.unwrap().description;
                 bot.send_message(
                     dialogue.chat_id(),
-                    "Failed to add alias.",
+                    format!("Failed to add alias: {error}"),
                 )
                    .await?;
             }
