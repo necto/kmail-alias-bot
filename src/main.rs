@@ -3,6 +3,10 @@ use teloxide::{
     prelude::*,
     utils::command::BotCommands,
 };
+use reqwest;
+use serde::{Serialize, Deserialize};
+use lazy_static;
+use confy;
 
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -30,9 +34,33 @@ enum Command {
     /// Cancel adding a new alias.
     Cancel,
     /// List all aliases.
-    ListAliases,
+    List,
     /// Remove an alias.
     Remove,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ListAliasesData {
+    enable_alias: i8,
+    aliases: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ListAliasesResponse {
+    result: String,
+    data: ListAliasesData,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct Config {
+    mail_hosting_id: String,
+    mailbox_name: String,
+    kmail_token: String, // FIXME: should this be in a separate "secrets" file?
+    teloxide_token: String,
+}
+
+lazy_static::lazy_static! {
+    static ref CONFIG: Config = confy::load_path("kmail-alias.toml").expect("Failed to load config");
 }
 
 #[tokio::main]
@@ -40,7 +68,9 @@ async fn main() {
     pretty_env_logger::init();
     log::info!("Starting kMail alias bot...");
 
-    let bot = Bot::from_env();
+    // TODO: panic if config didn't load properly
+
+    let bot = Bot::new(&CONFIG.teloxide_token);
 
     Dispatcher::builder(bot, schema())
         .dependencies(dptree::deps![InMemStorage::<State>::new()])
@@ -58,7 +88,7 @@ fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>>
             case![State::Start]
                 .branch(case![Command::Help].endpoint(help))
                 .branch(case![Command::Add].endpoint(start_new_alias))
-                .branch(case![Command::ListAliases].endpoint(list_aliases))
+                .branch(case![Command::List].endpoint(list_aliases))
                 .branch(case![Command::Remove].endpoint(start_removing_alias)),
         )
         .branch(case![Command::Cancel].endpoint(cancel));
@@ -86,7 +116,20 @@ async fn help(bot: Bot, msg: Message) -> HandlerResult {
 }
 
 async fn list_aliases(bot: Bot, msg: Message) -> HandlerResult {
-    bot.send_message(msg.chat.id, "Listing aliases is not implemented").await?;
+    let client = reqwest::Client::new();
+    let token = &CONFIG.kmail_token;
+    let mail_id = &CONFIG.mail_hosting_id;
+    let mailbox_name = &CONFIG.mailbox_name;
+    // TODO: handle errors
+    let resp = client.get(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
+        .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
+        .send()
+        .await.expect("Failed to send request")
+        .json::<ListAliasesResponse>()
+        .await.expect("Failed to parse response");
+    log::info!("Response: {:?}", resp);
+    let aliases = resp.data.aliases.join("`, `");
+    bot.send_message(msg.chat.id, format!("Aliases: `{aliases}`")).await?;
     Ok(())
 }
 
