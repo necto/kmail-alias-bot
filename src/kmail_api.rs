@@ -41,12 +41,12 @@ struct ManipulateAliasResult {
 }
 
 impl KMailApi {
-    pub fn new(token: String, mail_id: String, mailbox_name: String) -> Self {
+    pub fn new(token: &str, mail_id: &str, mailbox_name: &str) -> Self {
         Self {
             client: reqwest::Client::new(),
-            token,
-            mail_id,
-            mailbox_name,
+            token: token.to_owned(),
+            mail_id: mail_id.to_owned(),
+            mailbox_name: mailbox_name.to_owned(),
         }
     }
 

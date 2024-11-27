@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use teloxide::{
     dispatching::{dialogue, dialogue::InMemStorage, UpdateHandler},
     prelude::*,
@@ -47,11 +48,12 @@ async fn main() {
     log::info!("Starting kMail alias bot...");
 
     let config = Config::new();
+    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name));
 
     let bot = Bot::new(&config.teloxide_token);
 
     Dispatcher::builder(bot, schema())
-        .dependencies(dptree::deps![InMemStorage::<State>::new(), config])
+        .dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
@@ -93,8 +95,7 @@ async fn help(bot: Bot, msg: Message) -> HandlerResult {
     Ok(())
 }
 
-async fn list_aliases(bot: Bot, config: Config, msg: Message) -> HandlerResult {
-    let client = KMailApi::new(config.kmail_token, config.mail_hosting_id, config.mailbox_name);
+async fn list_aliases(bot: Bot, config: Config, client: Arc<KMailApi>, msg: Message) -> HandlerResult {
     match client.list_aliases().await {
         Ok(aliases) => {
             let mut reply: String = "Aliases:".into();
@@ -132,14 +133,19 @@ async fn invalid_state(bot: Bot, msg: Message) -> HandlerResult {
     Ok(())
 }
 
-async fn receive_alias_name_for_removal(bot: Bot, config: Config, dialogue: MyDialogue, msg: Message) -> HandlerResult {
+async fn receive_alias_name_for_removal(
+    bot: Bot,
+    config: Config,
+    client: Arc<KMailApi>,
+    dialogue: MyDialogue,
+    msg: Message
+) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
             let domain = &config.domain_name;
             // TODO: validation: matches one of the existing aliases
             bot.send_message(msg.chat.id, format!("Removing alias {alias_name}@{domain}")).await?;
 
-            let client = KMailApi::new(config.kmail_token, config.mail_hosting_id, config.mailbox_name);
             match client.remove_alias(&alias_name).await {
                 Ok(_) => {
                     bot.send_message(
@@ -185,6 +191,7 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
 async fn receive_alias_description(
     bot: Bot,
     config: Config,
+    client: Arc<KMailApi>,
     dialogue: MyDialogue,
     alias_name: String, // Available from `State::ReceiveAliasDescription`.
     msg: Message,
@@ -202,7 +209,6 @@ async fn receive_alias_description(
                 description,
             )
                .await?;
-            let client = KMailApi::new(config.kmail_token, config.mail_hosting_id, config.mailbox_name);
             match client.add_alias(&alias_name).await {
                 Ok(_) => {
                     bot.send_message(
