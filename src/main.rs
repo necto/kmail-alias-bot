@@ -5,7 +5,6 @@ use teloxide::{
 };
 use reqwest;
 use serde::{Serialize, Deserialize};
-use lazy_static;
 use confy;
 use serde_json;
 
@@ -52,7 +51,7 @@ struct ListAliasesResponse {
     data: ListAliasesData,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct Config {
     mail_hosting_id: String,
     mailbox_name: String,
@@ -60,13 +59,32 @@ struct Config {
     teloxide_token: String,
 }
 
-lazy_static::lazy_static! {
-    static ref CONFIG: Config = confy::load_path("kmail-alias.toml").expect("Failed to load config");
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 struct AddAlias {
     alias: String,
+}
+
+impl Config {
+    fn new() -> Self {
+        let ret: Config = confy::load_path("kmail-alias.toml").expect("Failed to load config");
+        ret.validate();
+        ret
+    }
+
+    fn validate(&self) {
+        if self.kmail_token.is_empty() {
+            panic!("kmail_token is empty");
+        }
+        if self.mail_hosting_id.is_empty() {
+            panic!("mail_hosting_id is empty");
+        }
+        if self.mailbox_name.is_empty() {
+            panic!("mailbox_name is empty");
+        }
+        if self.teloxide_token.is_empty() {
+            panic!("teloxide_token is empty");
+        }
+    }
 }
 
 #[tokio::main]
@@ -74,12 +92,12 @@ async fn main() {
     pretty_env_logger::init();
     log::info!("Starting kMail alias bot...");
 
-    // TODO: panic if config didn't load properly
+    let config = Config::new();
 
-    let bot = Bot::new(&CONFIG.teloxide_token);
+    let bot = Bot::new(&config.teloxide_token);
 
     Dispatcher::builder(bot, schema())
-        .dependencies(dptree::deps![InMemStorage::<State>::new()])
+        .dependencies(dptree::deps![InMemStorage::<State>::new(), config])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
@@ -121,11 +139,11 @@ async fn help(bot: Bot, msg: Message) -> HandlerResult {
     Ok(())
 }
 
-async fn list_aliases(bot: Bot, msg: Message) -> HandlerResult {
+async fn list_aliases(bot: Bot, config: Config, msg: Message) -> HandlerResult {
     let client = reqwest::Client::new();
-    let token = &CONFIG.kmail_token;
-    let mail_id = &CONFIG.mail_hosting_id;
-    let mailbox_name = &CONFIG.mailbox_name;
+    let token = &config.kmail_token;
+    let mail_id = &config.mail_hosting_id;
+    let mailbox_name = &config.mailbox_name;
     // TODO: handle errors
     let resp = client.get(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
         .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
@@ -175,7 +193,7 @@ struct ManipulateAliasResult {
     error: Option<ErrorResponse>,
 }
 
-async fn receive_alias_name_for_removal(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
+async fn receive_alias_name_for_removal(bot: Bot, config: Config, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
             // TODO: validation: matches one of the existing aliases
@@ -183,9 +201,9 @@ async fn receive_alias_name_for_removal(bot: Bot, dialogue: MyDialogue, msg: Mes
             // Delete an alias
             // https://developer.infomaniak.com/docs/api/delete/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases/%7Balias%7D
             let client = reqwest::Client::new();
-            let token = &CONFIG.kmail_token;
-            let mail_id = &CONFIG.mail_hosting_id;
-            let mailbox_name = &CONFIG.mailbox_name;
+            let token = &config.kmail_token;
+            let mail_id = &config.mail_hosting_id;
+            let mailbox_name = &config.mailbox_name;
             // TODO: handle errors
             let resp = client.delete(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases/{alias_name}"))
                              .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
@@ -236,6 +254,7 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
 
 async fn receive_alias_description(
     bot: Bot,
+    config: Config,
     dialogue: MyDialogue,
     alias_name: String, // Available from `State::ReceiveAliasDescription`.
     msg: Message,
@@ -256,9 +275,9 @@ async fn receive_alias_description(
             // Add an alias
             // https://developer.infomaniak.com/docs/api/post/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases
             let client = reqwest::Client::new();
-            let token = &CONFIG.kmail_token;
-            let mail_id = &CONFIG.mail_hosting_id;
-            let mailbox_name = &CONFIG.mailbox_name;
+            let token = &config.kmail_token;
+            let mail_id = &config.mail_hosting_id;
+            let mailbox_name = &config.mailbox_name;
             // TODO: handle errors
             let resp = client.post(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
                              .json(&AddAlias { alias: alias_name })
