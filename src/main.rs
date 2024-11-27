@@ -3,13 +3,12 @@ use teloxide::{
     prelude::*,
     utils::command::BotCommands,
 };
-use reqwest;
-use serde::{Serialize, Deserialize};
-use serde_json;
 
 mod config;
+mod kmail_api;
 
 use config::Config;
+use kmail_api::KMailApi;
 
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -40,23 +39,6 @@ enum Command {
     List,
     /// Remove an alias.
     Remove,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ListAliasesData {
-    enable_alias: i8,
-    aliases: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ListAliasesResponse {
-    result: String,
-    data: ListAliasesData,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct AddAlias {
-    alias: String,
 }
 
 #[tokio::main]
@@ -112,24 +94,20 @@ async fn help(bot: Bot, msg: Message) -> HandlerResult {
 }
 
 async fn list_aliases(bot: Bot, config: Config, msg: Message) -> HandlerResult {
-    let domain = &config.domain_name;
-    let client = reqwest::Client::new();
-    let token = &config.kmail_token;
-    let mail_id = &config.mail_hosting_id;
-    let mailbox_name = &config.mailbox_name;
-    // TODO: handle errors
-    let resp = client.get(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
-        .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
-        .send()
-        .await.expect("Failed to send request")
-        .json::<ListAliasesResponse>()
-        .await.expect("Failed to parse response");
-    log::info!("Response: {:?}", resp);
-    let mut reply: String = "Aliases:".into();
-    for alias in resp.data.aliases {
-        reply = reply + &format!("\n - {alias}@{domain}");
+    let client = KMailApi::new(config.kmail_token, config.mail_hosting_id, config.mailbox_name);
+    match client.list_aliases().await {
+        Ok(aliases) => {
+            let mut reply: String = "Aliases:".into();
+            let domain = &config.domain_name;
+            for alias in aliases {
+                reply = reply + &format!("\n - {alias}@{domain}");
+            }
+            bot.send_message(msg.chat.id, reply).await?;
+        }
+        Err(e) => {
+            bot.send_message(msg.chat.id, format!("Failed to list aliases: {e}")).await?;
+        }
     }
-    bot.send_message(msg.chat.id, reply).await?;
     Ok(())
 }
 
@@ -154,54 +132,29 @@ async fn invalid_state(bot: Bot, msg: Message) -> HandlerResult {
     Ok(())
 }
 
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ErrorResponse {
-    code: String,
-    description: String,
-    errors: Option<serde_json::Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ManipulateAliasResult {
-    result: String,
-    data: Option<bool>,
-    error: Option<ErrorResponse>,
-}
-
 async fn receive_alias_name_for_removal(bot: Bot, config: Config, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
             let domain = &config.domain_name;
             // TODO: validation: matches one of the existing aliases
             bot.send_message(msg.chat.id, format!("Removing alias {alias_name}@{domain}")).await?;
-            // Delete an alias
-            // https://developer.infomaniak.com/docs/api/delete/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases/%7Balias%7D
-            let client = reqwest::Client::new();
-            let token = &config.kmail_token;
-            let mail_id = &config.mail_hosting_id;
-            let mailbox_name = &config.mailbox_name;
-            // TODO: handle errors
-            let resp = client.delete(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases/{alias_name}"))
-                             .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
-                             .send()
-                             .await.expect("Failed to send request")
-                                   .json::<ManipulateAliasResult>()
-                .await.expect("Failed to parse response");
-            log::info!("Response: {:?}", resp);
-            if resp.result == "success" {
-                bot.send_message(
-                    dialogue.chat_id(),
-                    "Alias removed successfully.",
-                )
-                   .await?;
-            } else {
-                let error = resp.error.unwrap().description;
-                bot.send_message(
-                    dialogue.chat_id(),
-                    format!("Failed to remove alias: {error}"),
-                )
-                   .await?;
+
+            let client = KMailApi::new(config.kmail_token, config.mail_hosting_id, config.mailbox_name);
+            match client.remove_alias(&alias_name).await {
+                Ok(_) => {
+                    bot.send_message(
+                        dialogue.chat_id(),
+                        format!("Alias {alias_name}@{domain} removed successfully."),
+                    )
+                       .await?;
+                }
+                Err(e) => {
+                    bot.send_message(
+                        dialogue.chat_id(),
+                        format!("Failed to remove alias: {e}"),
+                    )
+                       .await?;
+                }
             }
             dialogue.exit().await?;
         }
@@ -249,39 +202,24 @@ async fn receive_alias_description(
                 description,
             )
                .await?;
-
-            // Add an alias
-            // https://developer.infomaniak.com/docs/api/post/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases
-            let client = reqwest::Client::new();
-            let token = &config.kmail_token;
-            let mail_id = &config.mail_hosting_id;
-            let mailbox_name = &config.mailbox_name;
-            // TODO: handle errors
-            let resp = client.post(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
-                             .json(&AddAlias { alias: alias_name })
-                             .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &token)
-                             .send()
-                             .await.expect("Failed to send request")
-                                   .json::<ManipulateAliasResult>()
-                .await.expect("Failed to parse response");
-
-            log::info!("Response: {:?}", resp);
-
-            if resp.result == "success" {
-                bot.send_message(
-                    dialogue.chat_id(),
-                    "Alias added successfully.",
-                )
-                   .await?;
-            } else {
-                let error = resp.error.unwrap().description;
-                bot.send_message(
-                    dialogue.chat_id(),
-                    format!("Failed to add alias: {error}"),
-                )
-                   .await?;
+            let client = KMailApi::new(config.kmail_token, config.mail_hosting_id, config.mailbox_name);
+            match client.add_alias(&alias_name).await {
+                Ok(_) => {
+                    bot.send_message(
+                        dialogue.chat_id(),
+                        format!("Alias {alias_name}@{domain} added successfully."),
+                    )
+                       .await?;
+                    // TODO: send a test e-mail with the description
+                }
+                Err(e) => {
+                    bot.send_message(
+                        dialogue.chat_id(),
+                        format!("Failed to add alias: {e}"),
+                    )
+                       .await?;
+                }
             }
-            // TODO: send a test e-mail with the description
 
             dialogue.exit().await?;
         }
