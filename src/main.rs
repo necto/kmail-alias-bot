@@ -183,7 +183,7 @@ async fn invalid_state(bot: Bot, msg: Message) -> HandlerResult {
 struct ErrorResponse {
     code: String,
     description: String,
-    errors: Vec<serde_json::Value>,
+    errors: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
