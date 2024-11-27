@@ -5,8 +5,11 @@ use teloxide::{
 };
 use reqwest;
 use serde::{Serialize, Deserialize};
-use confy;
 use serde_json;
+
+mod config;
+
+use config::Config;
 
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -51,44 +54,9 @@ struct ListAliasesResponse {
     data: ListAliasesData,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-struct Config {
-    domain_name: String,
-    mail_hosting_id: String,
-    mailbox_name: String,
-    kmail_token: String,
-    teloxide_token: String,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 struct AddAlias {
     alias: String,
-}
-
-impl Config {
-    fn new() -> Self {
-        let ret: Config = confy::load_path("kmail-alias.toml").expect("Failed to load config");
-        ret.validate();
-        ret
-    }
-
-    fn validate(&self) {
-        if self.domain_name.is_empty() {
-            panic!("domain_name is empty");
-        }
-        if self.kmail_token.is_empty() {
-            panic!("kmail_token is empty");
-        }
-        if self.mail_hosting_id.is_empty() {
-            panic!("mail_hosting_id is empty");
-        }
-        if self.mailbox_name.is_empty() {
-            panic!("mailbox_name is empty");
-        }
-        if self.teloxide_token.is_empty() {
-            panic!("teloxide_token is empty");
-        }
-    }
 }
 
 #[tokio::main]
