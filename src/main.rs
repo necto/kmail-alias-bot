@@ -53,9 +53,10 @@ struct ListAliasesResponse {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct Config {
+    domain_name: String,
     mail_hosting_id: String,
     mailbox_name: String,
-    kmail_token: String, // FIXME: should this be in a separate "secrets" file?
+    kmail_token: String,
     teloxide_token: String,
 }
 
@@ -72,6 +73,9 @@ impl Config {
     }
 
     fn validate(&self) {
+        if self.domain_name.is_empty() {
+            panic!("domain_name is empty");
+        }
         if self.kmail_token.is_empty() {
             panic!("kmail_token is empty");
         }
@@ -140,6 +144,7 @@ async fn help(bot: Bot, msg: Message) -> HandlerResult {
 }
 
 async fn list_aliases(bot: Bot, config: Config, msg: Message) -> HandlerResult {
+    let domain = &config.domain_name;
     let client = reqwest::Client::new();
     let token = &config.kmail_token;
     let mail_id = &config.mail_hosting_id;
@@ -152,8 +157,11 @@ async fn list_aliases(bot: Bot, config: Config, msg: Message) -> HandlerResult {
         .json::<ListAliasesResponse>()
         .await.expect("Failed to parse response");
     log::info!("Response: {:?}", resp);
-    let aliases = resp.data.aliases.join("`, `");
-    bot.send_message(msg.chat.id, format!("Aliases: `{aliases}`")).await?;
+    let mut reply: String = "Aliases:".into();
+    for alias in resp.data.aliases {
+        reply = reply + &format!("\n - {alias}@{domain}");
+    }
+    bot.send_message(msg.chat.id, reply).await?;
     Ok(())
 }
 
@@ -196,8 +204,9 @@ struct ManipulateAliasResult {
 async fn receive_alias_name_for_removal(bot: Bot, config: Config, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
+            let domain = &config.domain_name;
             // TODO: validation: matches one of the existing aliases
-            bot.send_message(msg.chat.id, format!("Removing alias {alias_name}@example.com")).await?;
+            bot.send_message(msg.chat.id, format!("Removing alias {alias_name}@{domain}")).await?;
             // Delete an alias
             // https://developer.infomaniak.com/docs/api/delete/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases/%7Balias%7D
             let client = reqwest::Client::new();
@@ -261,9 +270,10 @@ async fn receive_alias_description(
 ) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(description) => {
+            let domain = &config.domain_name;
             bot.send_message(
                 dialogue.chat_id(),
-                format!("Adding alias {alias_name}@example.com. With description:"),
+                format!("Adding alias {alias_name}@{domain}. With description:"),
             )
                .await?;
             bot.send_message(

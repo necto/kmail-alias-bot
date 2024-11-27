@@ -1,8 +1,7 @@
 * A simple Telegram bot to facilitate creation of e-mail aliases in Infomaniak's kMail
 
 ** Planned features
-- [ ] Get the kMail and the Telegram API tokens from a config file, and other
-  parameters, like the account id and/or domain name.
+- [X] Get the kMail and the Telegram API tokens, domain name, mailbox id, and account id from a config file
 - [ ] Get the owner TG handle from a config file, and communicate only with the
   owner.
 - [-] ~/add~ command to create an alias
