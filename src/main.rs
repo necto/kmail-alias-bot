@@ -7,9 +7,11 @@ use teloxide::{
 
 mod config;
 mod kmail_api;
+mod email;
 
 use config::Config;
 use kmail_api::KMailApi;
+use email::send_probe_email;
 
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -199,24 +201,51 @@ async fn receive_alias_description(
     match msg.text().map(ToOwned::to_owned) {
         Some(description) => {
             let domain = &config.domain_name;
+            let alias_email = format!("{alias_name}@{domain}");
             bot.send_message(
                 dialogue.chat_id(),
-                format!("Adding alias {alias_name}@{domain}. With description:"),
+                format!("Adding alias {alias_email}. With description:"),
             )
                .await?;
             bot.send_message(
                 dialogue.chat_id(),
-                description,
+                description.as_str(),
             )
                .await?;
             match client.add_alias(&alias_name).await {
                 Ok(_) => {
                     bot.send_message(
                         dialogue.chat_id(),
-                        format!("Alias {alias_name}@{domain} added successfully."),
+                        format!("Alias {alias_email} added successfully."),
                     )
                        .await?;
-                    // TODO: send a test e-mail with the description
+
+                    bot.send_message(
+                        dialogue.chat_id(),
+                        format!("Sending a probe email to {alias_email}."),
+                    )
+                       .await?;
+
+                    match send_probe_email(config,
+                                           &alias_email,
+                                           &alias_name,
+                                           &description).await {
+                        Ok(_) => {
+                            bot.send_message(
+                                dialogue.chat_id(),
+                                format!("Probe email sent successfully."),
+                            )
+                               .await?;
+                        },
+                        Err(e) => {
+                            bot.send_message(
+                                dialogue.chat_id(),
+                                format!("Failed to send probe email: {e}"),
+                            )
+                               .await?;
+                        }
+                    }
+
                 }
                 Err(e) => {
                     bot.send_message(

@@ -14,3 +14,4 @@ reqwest = { version = "0.12", features = ["json"] }
 serde = { version = "1.0.133", features = ["derive"] }
 confy = "0.6.1"
 serde_json = "1.0.133"
+mail-send = "0.4.9"
