@@ -265,3 +265,36 @@ async fn receive_alias_description(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use teloxide_tests::{MockBot, MockMessageText};
+
+    #[tokio::test]
+    async fn test_invalid_msg() {
+        let config = Config::new(); // TODO: use a test config
+        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name)); // TODO mock
+        let bot = MockBot::new(MockMessageText::new().text("Hi!"), schema());
+        bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
+        bot.dispatch().await;
+        let responses = bot.get_responses();
+        let message = responses.sent_messages.last().unwrap();
+        assert_eq!(message.text(), Some("Unable to handle the message. Type /help to see the usage."));
+    }
+
+    #[tokio::test]
+    async fn test_help_msg() {
+        let config = Config::new(); // TODO: use a test config
+        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name)); // TODO mock
+        let bot = MockBot::new(MockMessageText::new().text("/help"), schema());
+        bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
+        bot.dispatch().await;
+        let responses = bot.get_responses();
+        let message = responses.sent_messages.last().unwrap();
+        assert_ne!(message.text(), None);
+        assert!(message.text().unwrap().contains("/list"));
+        assert!(message.text().unwrap().contains("/add"));
+        assert!(message.text().unwrap().contains("/remove"));
+    }
+}
