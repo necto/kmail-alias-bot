@@ -10,10 +10,11 @@ pub async fn send_probe_email(
 ) -> Result<(), String> {
     match SmtpClientBuilder::new(config.probe_mail_sender_host.as_str(),
                                  config.probe_mail_sender_port)
-        .implicit_tls(false)
+        //.implicit_tls(false)
         .credentials((config.probe_mail_sender_email.as_str(),
                       config.probe_mail_sender_password.as_str()))
-        .connect()
+        // .connect()
+        .connect_plain() // TODO: make this configurable, needed for testing
         .await {
             Ok(mut client) => {
                 let message = MessageBuilder::new()
