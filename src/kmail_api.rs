@@ -6,6 +6,7 @@ pub struct KMailApi {
     token: String,
     mail_id: String,
     mailbox_name: String,
+    endpoint_url: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -41,20 +42,22 @@ struct ManipulateAliasResult {
 }
 
 impl KMailApi {
-    pub fn new(token: &str, mail_id: &str, mailbox_name: &str) -> Self {
+    pub fn new(token: &str, mail_id: &str, mailbox_name: &str, endpoint_url: &str) -> Self {
         Self {
             client: reqwest::Client::new(),
             token: token.to_owned(),
             mail_id: mail_id.to_owned(),
             mailbox_name: mailbox_name.to_owned(),
+            endpoint_url: endpoint_url.to_owned(),
         }
     }
 
     pub async fn list_aliases(&self) -> Result<Vec<String>, String> {
         let mail_id = &self.mail_id;
         let mailbox_name = &self.mailbox_name;
+        let endpoint_url = &self.endpoint_url;
         let resp = self.client
-                       .get(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
+                       .get(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
                        .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &self.token)
                        .send()
                        .await.expect("Failed to send request") // TODO: differentiate errors
@@ -69,8 +72,9 @@ impl KMailApi {
         // https://developer.infomaniak.com/docs/api/post/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases
         let mail_id = &self.mail_id;
         let mailbox_name = &self.mailbox_name;
+        let endpoint_url = &self.endpoint_url;
         let resp = self.client
-                       .post(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
+                       .post(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
                        .json(&AddAlias { alias: alias.to_owned() })
                        .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &self.token)
                        .send()
@@ -90,8 +94,9 @@ impl KMailApi {
         // https://developer.infomaniak.com/docs/api/delete/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases/%7Balias%7D
         let mail_id = &self.mail_id;
         let mailbox_name = &self.mailbox_name;
+        let endpoint_url = &self.endpoint_url;
         let resp = self.client
-                       .delete(format!("https://api.infomaniak.com/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases/{alias}"))
+                       .delete(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases/{alias}"))
                        .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &self.token)
                        .send()
                        .await.expect("Failed to send request") // TODO: differentiate errors

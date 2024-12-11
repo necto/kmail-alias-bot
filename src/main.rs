@@ -50,7 +50,7 @@ async fn main() {
     log::info!("Starting kMail alias bot...");
 
     let config = Config::new();
-    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name));
+    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "https://api.infomaniak.com"));
 
     let bot = Bot::new(&config.teloxide_token);
 
@@ -269,12 +269,13 @@ async fn receive_alias_description(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockito::Server;
     use teloxide_tests::{MockBot, MockMessageText};
 
     #[tokio::test]
     async fn test_invalid_msg() {
         let config = Config::new(); // TODO: use a test config
-        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name)); // TODO mock
+        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost")); // TODO mock
         let bot = MockBot::new(MockMessageText::new().text("Hi!"), schema());
         bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
         bot.dispatch().await;
@@ -286,7 +287,7 @@ mod tests {
     #[tokio::test]
     async fn test_help_msg() {
         let config = Config::new(); // TODO: use a test config
-        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name)); // TODO mock
+        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost")); // TODO mock
         let bot = MockBot::new(MockMessageText::new().text("/help"), schema());
         bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
         bot.dispatch().await;
@@ -296,5 +297,33 @@ mod tests {
         assert!(message.text().unwrap().contains("/list"));
         assert!(message.text().unwrap().contains("/add"));
         assert!(message.text().unwrap().contains("/remove"));
+    }
+
+    // TODO: find out why the doc describe a different shape of the response
+    // https://developer.infomaniak.com/docs/api/get/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases
+    #[tokio::test]
+    async fn test_list_aliases() {
+        let mut server = Server::new_async().await;
+        let mock = server.mock("GET", "/1/mail_hostings/mail_id/mailboxes/mailbox_name/aliases")
+                         .with_body(r#"
+
+{
+"result":"success",
+"data":{
+"enable_alias":1,
+"aliases":[
+"aaa", "bbb", "ccc"
+]
+}
+}
+"#)
+                         .create_async()
+                         .await;
+        // TODO: Check that auth token is provided in the request
+
+        let api = KMailApi::new("token", "mail_id", "mailbox_name", &server.url());
+        let list = api.list_aliases().await.unwrap();
+        assert_eq!(list, vec!["aaa", "bbb", "ccc"]);
+        mock.assert();
     }
 }
