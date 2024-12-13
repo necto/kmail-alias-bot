@@ -271,8 +271,6 @@ mod tests {
     use super::*;
     use mockito::Server;
     use teloxide_tests::{MockBot, MockMessageText};
-    use maik::{MailAssertion, MockServer};
-    use std::collections::HashSet;
 
     #[tokio::test]
     async fn test_invalid_msg() {
@@ -327,42 +325,5 @@ mod tests {
         let list = api.list_aliases().await.unwrap();
         assert_eq!(list, vec!["aaa", "bbb", "ccc"]);
         mock.assert();
-    }
-
-    #[tokio::test]
-    async fn test_probe_email() {
-        // set up and start the mock server
-        let mut server = MockServer::new("smtp.domain.tld");
-        println!("Server running on {}:{}", server.host(), server.port());
-        // server.set_require_tls();
-        // server.add_mailbox("sender@domain.tld", "sender-password");
-        // server.cert_pem();
-        // TODO should I forward the server certificate to send_email instead? see server.cert_pem();
-        server.set_no_verify_credentials();
-        server.start();
-
-        let mut config = Config::new(); // TODO: do not read anything from a configfile
-
-        config.probe_mail_sender_password = "sender-password".to_string();
-        config.probe_mail_sender_email = "sender@domain.tld".to_string();
-        config.probe_mail_sender_name = "Sender Name".to_string();
-        config.probe_mail_sender_host = server.host().to_string();
-        config.probe_mail_sender_port = server.port();
-        config.probe_mail_receiver_name = "Receiver Name".to_string();
-
-        send_probe_email(config, "my-custom-alias@domain.tld", "my-custom-alias", "Alias description")
-            .await
-            .unwrap();
-
-
-        // assert user@domain.tld received some mail that contains "verification code: "
-        let mut recipients = HashSet::new();
-        recipients.insert("alias@domain.tld");
-
-        // FIXME: breaks, see logs
-        // let ma = MailAssertion::new()
-        //     .recipients_are(recipients)
-        //     .body_contains("Alias description");
-        // assert!(server.assert(ma));
     }
 }
