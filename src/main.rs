@@ -11,7 +11,7 @@ mod email;
 
 use config::Config;
 use kmail_api::KMailApi;
-use email::send_probe_email;
+use email::EmailSender;
 
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -54,8 +54,10 @@ async fn main() {
 
     let bot = Bot::new(&config.teloxide_token);
 
+    let mail_sender = email::EmailSender::new(config.clone());
+
     Dispatcher::builder(bot, schema())
-        .dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client])
+        .dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client, mail_sender])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
@@ -197,6 +199,7 @@ async fn receive_alias_description(
     dialogue: MyDialogue,
     alias_name: String, // Available from `State::ReceiveAliasDescription`.
     msg: Message,
+    sender: EmailSender,
 ) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(description) => {
@@ -226,10 +229,9 @@ async fn receive_alias_description(
                     )
                        .await?;
 
-                    match send_probe_email(config,
-                                           &alias_email,
-                                           &alias_name,
-                                           &description).await {
+                    match sender.send_probe_email(&alias_email,
+                                                  &alias_name,
+                                                  &description).await {
                         Ok(_) => {
                             bot.send_message(
                                 dialogue.chat_id(),
