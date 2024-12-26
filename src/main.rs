@@ -274,9 +274,28 @@ mod tests {
     use mockito::Server;
     use teloxide_tests::{MockBot, MockMessageText};
 
+    fn mock_config() -> Config {
+        Config {
+            teloxide_token: "mock_teloxide_token1234".to_string(),
+
+            kmail_token: "mock_kmail_token1234".to_string(),
+            mail_hosting_id: "mock_mail_hosting_id".to_string(),
+            mailbox_name: "mock_name".to_string(),
+
+            domain_name: "mock_domain".to_string(),
+
+            probe_mail_sender_password: "mock_sender_password".to_string(),
+            probe_mail_sender_email: "mock_sender_email".to_string(),
+            probe_mail_sender_name: "mock_sender_name".to_string(),
+            probe_mail_sender_host: "mock_sender_host".to_string(),
+            probe_mail_sender_port: 1234,
+            probe_mail_receiver_name: "mock_receiver_name".to_string()
+        }
+    }
+
     #[tokio::test]
     async fn test_invalid_msg() {
-        let config = Config::new(); // TODO: use a test config
+        let config = mock_config();
         let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost")); // TODO mock
         let bot = MockBot::new(MockMessageText::new().text("Hi!"), schema());
         bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
@@ -288,7 +307,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_help_msg() {
-        let config = Config::new(); // TODO: use a test config
+        let config = mock_config();
         let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost")); // TODO mock
         let bot = MockBot::new(MockMessageText::new().text("/help"), schema());
         bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
@@ -346,7 +365,7 @@ mod tests {
 
         let api = Arc::new(KMailApi::new("token", "mail_id", "mailbox_name", &server.url()));
 
-        let config = Config::new(); // TODO: use a test config
+        let config = mock_config();
         let bot = MockBot::new(MockMessageText::new().text("/add"), schema());
         let sender = EmailSender::new_mock(Ok(()));
         bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api, sender]);
