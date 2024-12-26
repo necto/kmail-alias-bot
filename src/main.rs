@@ -296,7 +296,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_msg() {
         let config = mock_config();
-        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost")); // TODO mock
+        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost"));
         let bot = MockBot::new(MockMessageText::new().text("Hi!"), schema());
         bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
         bot.dispatch().await;
@@ -308,7 +308,7 @@ mod tests {
     #[tokio::test]
     async fn test_help_msg() {
         let config = mock_config();
-        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost")); // TODO mock
+        let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost"));
         let bot = MockBot::new(MockMessageText::new().text("/help"), schema());
         bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
         bot.dispatch().await;
