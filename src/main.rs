@@ -328,4 +328,35 @@ mod tests {
         assert_eq!(list, vec!["aaa", "bbb", "ccc"]);
         mock.assert();
     }
+
+    #[tokio::test]
+    async fn test_add_aliases() {
+        let mut server = Server::new_async().await;
+        let mock = server.mock("POST", "/1/mail_hostings/mail_id/mailboxes/mailbox_name/aliases")
+                         .with_body(r#"
+
+{
+"result":"success",
+"data":true
+}
+"#)
+                         .create_async()
+                         .await;
+        // TODO: Check that auth token is provided in the request
+
+        let api = Arc::new(KMailApi::new("token", "mail_id", "mailbox_name", &server.url()));
+
+        let config = Config::new(); // TODO: use a test config
+        let bot = MockBot::new(MockMessageText::new().text("/add"), schema());
+        let sender = EmailSender::new_mock(Ok(()));
+        bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api, sender]);
+        bot.dispatch().await;
+        bot.update(MockMessageText::new().text("added-alias-name"));
+        bot.dispatch_and_check_last_text("Enter the description of the alias").await;
+        bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
+
+        // let result = api.add_alias("alias").await.unwrap();
+        // assert_eq!(result, ());
+        mock.assert();
+    }
 }
