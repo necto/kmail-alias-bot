@@ -7,9 +7,7 @@ pub struct Config {
     pub teloxide_token: String,
 
     // kMail API access
-    pub kmail_token: String,
-    pub mail_hosting_id: String,
-    pub mailbox_name: String,
+    pub kmail_api: crate::kmail_api::Config,
 
     // The domain name part, used purely for display purposes
     // e.g. "example.com" in "john@example.com"
@@ -29,15 +27,7 @@ impl Config {
         if self.teloxide_token.is_empty() {
             panic!("teloxide_token is empty");
         }
-        if self.kmail_token.is_empty() {
-            panic!("kmail_token is empty");
-        }
-        if self.mail_hosting_id.is_empty() {
-            panic!("mail_hosting_id is empty");
-        }
-        if self.mailbox_name.is_empty() {
-            panic!("mailbox_name is empty");
-        }
+        self.kmail_api.validate();
         if self.domain_name.is_empty() {
             panic!("domain_name is empty");
         }

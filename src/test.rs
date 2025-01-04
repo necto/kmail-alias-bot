@@ -4,7 +4,7 @@ use super::*;
 use std::sync::Arc;
 use kmail_api::KMailApi;
 use mockito::Server;
-use bot::schema;
+use bot::{schema, DomainName};
 use teloxide_tests::{MockBot, MockMessageText, MockMessageSticker};
 use teloxide::{
     dispatching::dialogue::InMemStorage,
@@ -18,11 +18,11 @@ fn mock_config() -> Config {
 
 fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mutex<email::mock::ProbeArgs>>) {
     let config = mock_config();
-    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, kmail_url));
+    let api_client = Arc::new(KMailApi::new(config.kmail_api, kmail_url));
     let bot = MockBot::new(first_update, schema());
     let probe_email_args = email::mock::new_args_observer();
     let sender = EmailSender::new_mock(Ok(()), probe_email_args.clone());
-    bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client, sender]);
+    bot.dependencies(dptree::deps![InMemStorage::<State>::new(), DomainName::new(config.domain_name), api_client, sender]);
     (bot, probe_email_args)
 }
 
@@ -49,7 +49,7 @@ async fn test_help_msg() {
 
 fn mock_kmail_api(url: &str) -> Arc<KMailApi> {
     let config = mock_config();
-    Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, url))
+    Arc::new(KMailApi::new(config.kmail_api, url))
 }
 
 // TODO: find out why the doc describe a different shape of the response

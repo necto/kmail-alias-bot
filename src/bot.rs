@@ -46,19 +46,37 @@ enum Command {
     Remove,
 }
 
+#[derive(Clone)]
+pub struct DomainName(String);
+
+impl DomainName {
+    pub fn new(domain_name: String) -> Self {
+        Self(domain_name)
+    }
+
+    fn full_email(&self, alias: &str) -> String {
+        format!("{}@{}", alias, self.0)
+    }
+}
+
 type KMailBot = Dispatcher<teloxide::Bot,
                            Box<(dyn std::error::Error + Send + std::marker::Sync + 'static)>,
                            DefaultKey>;
 
 pub fn make_bot(config: Config) -> KMailBot {
-    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "https://api.infomaniak.com"));
+    let api_client = Arc::new(KMailApi::new(config.kmail_api, "https://api.infomaniak.com"));
 
     let bot = Bot::new(&config.teloxide_token);
 
-    let mail_sender = EmailSender::new(config.probe_mail.clone());
+    let mail_sender = EmailSender::new(config.probe_mail);
 
     Dispatcher::builder(bot, schema())
-        .dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client, mail_sender])
+        .dependencies(dptree::deps![
+            InMemStorage::<State>::new(),
+            DomainName::new(config.domain_name),
+            api_client,
+            mail_sender
+        ])
         .enable_ctrlc_handler()
         .build()
 }
@@ -99,13 +117,13 @@ async fn help(bot: Bot, msg: Message) -> HandlerResult {
     Ok(())
 }
 
-async fn list_aliases(bot: Bot, config: Config, client: Arc<KMailApi>, msg: Message) -> HandlerResult {
+async fn list_aliases(bot: Bot, domain: DomainName, client: Arc<KMailApi>, msg: Message) -> HandlerResult {
     match client.list_aliases().await {
         Ok(aliases) => {
             let mut reply: String = "Aliases:".into();
-            let domain = &config.domain_name;
             for alias in aliases {
-                reply = reply + &format!("\n - {alias}@{domain}");
+                let full_email = domain.full_email(&alias);
+                reply = reply + &format!("\n - {full_email}");
             }
             bot.send_message(msg.chat.id, reply).await?;
         }
@@ -139,21 +157,21 @@ async fn invalid_state(bot: Bot, msg: Message) -> HandlerResult {
 
 async fn receive_alias_name_for_removal(
     bot: Bot,
-    config: Config,
+    domain: DomainName,
     client: Arc<KMailApi>,
     dialogue: MyDialogue,
     msg: Message
 ) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
-            let domain = &config.domain_name;
-            bot.send_message(msg.chat.id, format!("Removing alias {alias_name}@{domain}")).await?;
+            let full_email = domain.full_email(&alias_name);
+            bot.send_message(msg.chat.id, format!("Removing alias {full_email}")).await?;
 
             match client.remove_alias(&alias_name).await {
                 Ok(_) => {
                     bot.send_message(
                         dialogue.chat_id(),
-                        format!("Alias {alias_name}@{domain} removed successfully."),
+                        format!("Alias {full_email} removed successfully."),
                     )
                        .await?;
                 }
@@ -204,7 +222,7 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
 
 async fn receive_alias_description(
     bot: Bot,
-    config: Config,
+    domain: DomainName,
     client: Arc<KMailApi>,
     dialogue: MyDialogue,
     alias_name: String, // Available from `State::ReceiveAliasDescription`.
@@ -213,8 +231,7 @@ async fn receive_alias_description(
 ) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(description) => {
-            let domain = &config.domain_name;
-            let alias_email = format!("{alias_name}@{domain}");
+            let alias_email = domain.full_email(&alias_name);
             bot.send_message(
                 dialogue.chat_id(),
                 format!("Adding alias {alias_email}. With description:"),
