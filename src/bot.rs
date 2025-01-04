@@ -195,7 +195,8 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
             }
         }
         None => {
-            bot.send_message(msg.chat.id, "Please, send me a single-word alias name.").await?;
+            bot.send_message(msg.chat.id, "Got a non-text, aborting.").await?;
+            dialogue.update(State::Start).await?;
         }
     }
 

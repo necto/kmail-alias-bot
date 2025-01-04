@@ -5,7 +5,7 @@ use std::sync::Arc;
 use kmail_api::KMailApi;
 use mockito::Server;
 use bot::schema;
-use teloxide_tests::{MockBot, MockMessageText};
+use teloxide_tests::{MockBot, MockMessageText, MockMessageSticker};
 use teloxide::{
     dispatching::dialogue::InMemStorage,
     prelude::*
@@ -164,6 +164,21 @@ async fn test_add_alias_invalid_alias() {
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
     bot.update(MockMessageText::new().text("invalid mock name"));
     bot.dispatch_and_check_last_text("Invalid alias name 'invalid mock name', aborting.").await;
+    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
+    assert!(!mock.matched());
+}
+
+#[tokio::test]
+async fn test_add_alias_nonword() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("POST", mockito::Matcher::Any)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
+    bot.update(MockMessageSticker::new().emoji("👍"));
+    bot.dispatch_and_check_last_text("Got a non-text, aborting.").await;
     bot.update(MockMessageText::new().text("test description")); // try to add description anyway
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
