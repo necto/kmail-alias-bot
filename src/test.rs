@@ -96,7 +96,7 @@ async fn test_api_list_aliases() {
 }
 
 #[tokio::test]
-async fn test_api_add_aliases() {
+async fn test_add_aliases_success() {
     let mut server = Server::new_async().await;
     let mock = server.mock("POST", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
                      .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
@@ -124,38 +124,25 @@ async fn test_api_add_aliases() {
 }
 
 #[tokio::test]
-async fn test_add_aliases_success() { // is it a duplicate of test_api_add_aliases?
-    let mut server = Server::new_async().await;
-    let mock = server.mock("POST", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
-                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
-                     .with_body(r#"
-
-{
-"result":"success",
-"data":true
-}
-"#)
-                        .create_async()
-                        .await;
-
-    let (bot, probe_mail) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+#[should_panic] // FIXME: should complain into the chat instead
+async fn test_add_aliases_no_response() {
+    let server = Server::new_async().await;
+    // No mock response added
+    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
     bot.update(MockMessageText::new().text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
     bot.update(MockMessageText::new().text("test description"));
     bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
 
-    mock.assert(); // API request was sent
-    assert_eq!(probe_mail.lock().await.alias_email, "added-alias-name@mock_domain");
-    assert_eq!(probe_mail.lock().await.description, "test description");
-    assert_eq!(probe_mail.lock().await.alias_name, "added-alias-name");
+    // TODO: assert: complained to the chat user
 }
 
 // TODO: test each action:
 // - [ ] add
 //   - [X] success path
 //   - [ ] no response
-//   - [ ] unexpected response
+//   - [X] unexpected response
 //   - [ ] error response
 //   - [ ] invalid alias
 //   - [ ] existing alias?
