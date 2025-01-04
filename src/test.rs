@@ -285,17 +285,141 @@ Caused by:
     mock.assert();
 }
 
+#[tokio::test]
+async fn test_remove_alias_success() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("DELETE", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases/alias-to-remove")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+{
+    "result":"success",
+    "data":true
+}
+"#)
+                        .create_async()
+                        .await;
+
+    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
+    bot.update(MockMessageText::new().text("alias-to-remove"));
+    bot.dispatch_and_check_last_text("Alias alias-to-remove@mock_domain removed successfully.").await;
+    mock.assert(); // API request was sent
+}
+
+#[tokio::test]
+async fn test_remove_alias_empty_response() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("DELETE", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases/alias-to-remove")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#""#)
+                        .create_async()
+                        .await;
+
+    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
+    bot.update(MockMessageText::new().text("different-alias")); // different from the one in mock path
+    bot.dispatch_and_check_last_text(
+        "Failed to remove alias: Failed to parse response
+
+Caused by:
+    0: error decoding response body
+    1: EOF while parsing a value at line 1 column 0").await;
+    assert!(!mock.matched());
+}
+
+#[tokio::test]
+async fn test_remove_alias_unexpected_response() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("DELETE", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases/alias-to-remove")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+{
+    "result":"success",
+    "data":"nonsense"
+}"#)
+                        .create_async()
+                        .await;
+
+    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
+    bot.update(MockMessageText::new().text("alias-to-remove"));
+    bot.dispatch_and_check_last_text(
+        "Failed to remove alias: Failed to parse response
+
+Caused by:
+    0: error decoding response body
+    1: invalid type: string \"nonsense\", expected a boolean at line 4 column 21").await;
+    mock.assert();
+}
+
+#[tokio::test]
+async fn test_remove_alias_non_existing() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("DELETE", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases/non-existing-alias")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+{
+    "result":"error",
+    "error":{
+        "code":"not_found",
+        "description":"Not Found",
+        "errors":[
+        ]
+    }
+}
+"#)
+                        .create_async()
+                        .await;
+
+    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
+    bot.update(MockMessageText::new().text("non-existing-alias"));
+    bot.dispatch_and_check_last_text("Failed to remove alias: Not Found").await;
+    mock.assert();
+}
+
+#[tokio::test]
+async fn test_remove_alias_invalid_alias() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("DELETE", mockito::Matcher::Any)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
+    bot.update(MockMessageText::new().text("@invalid"));
+    bot.dispatch_and_check_last_text("Invalid alias name '@invalid', aborting.").await;
+    bot.update(MockMessageText::new().text("@invalid")); // check that dialog is reset
+    bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
+    assert!(!mock.matched());
+}
+
+#[tokio::test]
+async fn test_remove_alias_nonword_alias() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("DELETE", mockito::Matcher::Any)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
+    bot.update(MockMessageSticker::new().emoji("💩"));
+    bot.dispatch_and_check_last_text("Got a non-text, aborting.").await;
+    bot.update(MockMessageText::new().text("@invalid")); // check that dialog is reset
+    bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
+    assert!(!mock.matched());
+}
+
 // TODO: test each action:
 // - [X] add
 //   - [X] success path
 //   - [X] unexpected response
 //   - [X] error response
 //   - [X] invalid alias
-// - [ ] remove
-//   - [ ] success path
-//   - [ ] unexpected response
-//   - [ ] error response
-//   - [ ] invalid alias
+//   - [ ] failing to send probe email
+// - [X] remove
+//   - [X] success path
+//   - [X] unexpected response
+//   - [X] error response
+//   - [X] invalid alias
 // - [X] list
 //   - [X] success path
 //   - [X] unexpected response

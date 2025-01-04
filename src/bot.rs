@@ -155,6 +155,11 @@ async fn invalid_state(bot: Bot, msg: Message) -> HandlerResult {
     Ok(())
 }
 
+fn is_valid_alias_name(name: &str) -> bool {
+    let allowed_re = regex::Regex::new(r"^[-a-zA-Z0-9!#$%^&*_+=?`{}|~]+$").unwrap();
+    allowed_re.is_match(name)
+}
+
 async fn receive_alias_name_for_removal(
     bot: Bot,
     domain: DomainName,
@@ -164,40 +169,41 @@ async fn receive_alias_name_for_removal(
 ) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
-            let full_email = domain.full_email(&alias_name);
-            bot.send_message(msg.chat.id, format!("Removing alias {full_email}")).await?;
+            if is_valid_alias_name(&alias_name) {
+                let full_email = domain.full_email(&alias_name);
+                bot.send_message(msg.chat.id, format!("Removing alias {full_email}")).await?;
 
-            match client.remove_alias(&alias_name).await {
-                Ok(_) => {
-                    bot.send_message(
-                        dialogue.chat_id(),
-                        format!("Alias {full_email} removed successfully."),
-                    )
-                       .await?;
+                match client.remove_alias(&alias_name).await {
+                    Ok(_) => {
+                        bot.send_message(
+                            dialogue.chat_id(),
+                            format!("Alias {full_email} removed successfully."),
+                        )
+                           .await?;
+                    }
+                    Err(e) => {
+                        bot.send_message(
+                            dialogue.chat_id(),
+                            format!("Failed to remove alias: {e:?}"),
+                        )
+                           .await?;
+                    }
                 }
-                Err(e) => {
-                    bot.send_message(
-                        dialogue.chat_id(),
-                        format!("Failed to remove alias: {e}"),
-                    )
-                       .await?;
-                }
+            } else {
+                bot.send_message(msg.chat.id,
+                                 format!("Invalid alias name '{}', aborting.", alias_name)).await?;
             }
             dialogue.exit().await?;
+
         }
         None => {
-            bot.send_message(msg.chat.id, "Please, send me a single-word alias name.").await?;
+            bot.send_message(msg.chat.id, "Got a non-text, aborting.").await?;
+            dialogue.exit().await?;
         }
     }
 
     Ok(())
 }
-
-fn is_valid_alias_name(name: &str) -> bool {
-    let allowed_re = regex::Regex::new(r"^[-a-zA-Z0-9!#$%^&*_+=?`{}|~]+$").unwrap();
-    allowed_re.is_match(name)
-}
-
 
 async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
@@ -208,12 +214,12 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
             } else {
                 bot.send_message(msg.chat.id,
                                  format!("Invalid alias name '{}', aborting.", alias_name)).await?;
-                dialogue.update(State::Start).await?;
+                dialogue.exit().await?;
             }
         }
         None => {
             bot.send_message(msg.chat.id, "Got a non-text, aborting.").await?;
-            dialogue.update(State::Start).await?;
+            dialogue.exit().await?;
         }
     }
 

@@ -102,7 +102,7 @@ impl KMailApi {
         }
     }
 
-    pub async fn remove_alias(&self, alias: &str) -> Result<(), String> {
+    pub async fn remove_alias(&self, alias: &str) -> anyhow::Result<()> {
         // Delete an alias
         // https://developer.infomaniak.com/docs/api/delete/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases/%7Balias%7D
         let mail_id = &self.config.mail_id;
@@ -112,14 +112,14 @@ impl KMailApi {
                        .delete(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases/{alias}"))
                        .header(reqwest::header::AUTHORIZATION, self.auth_header())
                        .send()
-                       .await.expect("Failed to send request") // TODO: differentiate errors
+                       .await.context("Failed to send request")?
                        .json::<ManipulateAliasResult>()
-            .await.expect("Failed to parse response"); // TODO: more detailed error
+            .await.context("Failed to parse response")?;
         log::info!("Response: {:?}", resp);
         if resp.result == "success" {
             Ok(())
         } else {
-            Err(resp.error.unwrap().description)
+            anyhow::bail!(resp.error.unwrap().description)
         }
     }
 }
