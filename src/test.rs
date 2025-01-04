@@ -443,21 +443,3 @@ async fn test_remove_alias_nonword_alias() {
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
 }
-
-// TODO: test each action:
-// - [X] add
-//   - [X] success path
-//   - [X] unexpected response
-//   - [X] error response
-//   - [X] invalid alias
-//   - [X] failing to send probe email
-// - [X] remove
-//   - [X] success path
-//   - [X] unexpected response
-//   - [X] error response
-//   - [X] invalid alias
-// - [X] list
-//   - [X] success path
-//   - [X] unexpected response
-//   - [X] error response
-// - [ ] user enters incorrect command
