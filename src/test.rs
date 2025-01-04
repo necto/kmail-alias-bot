@@ -52,8 +52,9 @@ fn mock_kmail_api(url: &str) -> Arc<KMailApi> {
     Arc::new(KMailApi::new(config.kmail_api, url))
 }
 
-// TODO: find out why the doc describe a different shape of the response
+// WAITING: find out why the doc describe a different shape of the response
 // https://developer.infomaniak.com/docs/api/get/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases
+// contacted Infomaniak support, ticket: #INK-KKU-13837-743
 #[tokio::test]
 async fn test_api_list_aliases() {
     let mut server = Server::new_async().await;
@@ -216,6 +217,74 @@ async fn test_add_alias_cancel_on_description() {
     assert!(!mock.matched());
 }
 
+#[tokio::test]
+async fn test_list_aliases_success() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("GET", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+{
+    "result":"success",
+    "data":{
+        "enable_alias":1,
+        "aliases":[
+            "aaa", "bbb", "ccc"
+        ]
+    }
+}
+"#)
+                        .create_async()
+                        .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/list"), &server.url());
+    bot.dispatch_and_check_last_text(
+        "Aliases:
+ - aaa@mock_domain
+ - bbb@mock_domain
+ - ccc@mock_domain").await;
+    mock.assert();
+}
+
+#[tokio::test]
+async fn test_list_aliases_error_response() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("GET", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+{
+    "result":"error",
+    "error":{
+        "code":"not_found",
+        "description":"Not Found",
+        "errors":[
+        ]
+    }
+}
+"#)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/list"), &server.url());
+    bot.dispatch_and_check_last_text("Failed to list aliases: Error from server: Not Found").await;
+    mock.assert();
+}
+
+#[tokio::test]
+async fn test_list_aliases_unexpected_response() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("GET", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"trash"#)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/list"), &server.url());
+    bot.dispatch_and_check_last_text(
+        "Failed to list aliases: Failed to parse response
+
+Caused by:
+    0: error decoding response body
+    1: expected ident at line 1 column 3").await;
+    mock.assert();
+}
+
 // TODO: test each action:
 // - [X] add
 //   - [X] success path
@@ -227,8 +296,8 @@ async fn test_add_alias_cancel_on_description() {
 //   - [ ] unexpected response
 //   - [ ] error response
 //   - [ ] invalid alias
-// - [ ] list
-//   - [ ] success path
-//   - [ ] unexpected response
-//   - [ ] error response
+// - [X] list
+//   - [X] success path
+//   - [X] unexpected response
+//   - [X] error response
 // - [ ] user enters incorrect command

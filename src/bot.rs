@@ -128,7 +128,7 @@ async fn list_aliases(bot: Bot, domain: DomainName, client: Arc<KMailApi>, msg: 
             bot.send_message(msg.chat.id, reply).await?;
         }
         Err(e) => {
-            bot.send_message(msg.chat.id, format!("Failed to list aliases: {e}")).await?;
+            bot.send_message(msg.chat.id, format!("Failed to list aliases: {e:?}")).await?;
         }
     }
     Ok(())

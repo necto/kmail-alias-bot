@@ -23,22 +23,22 @@ struct ListAliasesData {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ErrorResponse {
+    code: String,
+    description: String,
+    errors: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct ListAliasesResponse {
     result: String,
-    data: ListAliasesData,
+    data: Option<ListAliasesData>,
+    error: Option<ErrorResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct AddAlias {
     alias: String,
-}
-
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ErrorResponse {
-    code: String,
-    description: String,
-    errors: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -61,7 +61,7 @@ impl KMailApi {
         "Bearer ".to_owned() + &self.config.token
     }
 
-    pub async fn list_aliases(&self) -> Result<Vec<String>, String> {
+    pub async fn list_aliases(&self) -> anyhow::Result<Vec<String>> {
         let mail_id = &self.config.mail_id;
         let mailbox_name = &self.config.mailbox_name;
         let endpoint_url = &self.endpoint_url;
@@ -69,11 +69,14 @@ impl KMailApi {
                        .get(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
                        .header(reqwest::header::AUTHORIZATION, self.auth_header())
                        .send()
-                       .await.expect("Failed to send request") // TODO: differentiate errors
+                       .await.context("Failed to send request")?
                        .json::<ListAliasesResponse>()
-            .await.expect("Failed to parse response"); // TODO: more detailed error
+            .await.context("Failed to parse response")?;
         log::info!("Response: {:?}", resp);
-        Ok(resp.data.aliases)
+        if resp.result != "success" {
+            anyhow::bail!("Error from server: {}", resp.error.unwrap().description)
+        }
+        Ok(resp.data.unwrap().aliases)
     }
 
     pub async fn add_alias(&self, alias: &str) -> anyhow::Result<()> {
