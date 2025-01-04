@@ -16,14 +16,19 @@ fn mock_config() -> Config {
     Config::new("test-config.toml")
 }
 
-fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mutex<email::mock::ProbeArgs>>) {
+fn mock_bot_full(first_update: MockMessageText, kmail_url: &str, probe_email_result: Result<(), String>)
+                 -> (MockBot, Arc<Mutex<email::mock::ProbeArgs>>) {
     let config = mock_config();
     let api_client = Arc::new(KMailApi::new(config.kmail_api, kmail_url));
     let bot = MockBot::new(first_update, schema());
     let probe_email_args = email::mock::new_args_observer();
-    let sender = EmailSender::new_mock(Ok(()), probe_email_args.clone());
+    let sender = EmailSender::new_mock(probe_email_result, probe_email_args.clone());
     bot.dependencies(dptree::deps![InMemStorage::<State>::new(), DomainName::new(config.domain_name), api_client, sender]);
     (bot, probe_email_args)
+}
+
+fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mutex<email::mock::ProbeArgs>>) {
+    mock_bot_full(first_update, kmail_url, Ok(()))
 }
 
 #[tokio::test]
@@ -102,6 +107,37 @@ async fn test_add_alias_success() {
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
     bot.update(MockMessageText::new().text("test description"));
     bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
+
+    mock.assert(); // API request was sent
+    assert_eq!(probe_mail.lock().await.alias_email, "added-alias-name@mock_domain");
+    assert_eq!(probe_mail.lock().await.description, "test description");
+    assert_eq!(probe_mail.lock().await.alias_name, "added-alias-name");
+}
+
+#[tokio::test]
+async fn test_add_alias_probe_email_fails() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("POST", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+
+{
+    "result":"success",
+    "data":true
+}
+"#)
+                        .create_async()
+                        .await;
+
+    let mail_error = Err("mock error".to_string());
+    let (bot, probe_mail) = mock_bot_full(MockMessageText::new().text("/add"), &server.url(), mail_error);
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
+    bot.update(MockMessageText::new().text("added-alias-name"));
+    bot.dispatch_and_check_last_text("Enter the description of the alias").await;
+    bot.update(MockMessageText::new().text("test description"));
+    bot.dispatch_and_check_last_text("Failed to send probe email: mock error").await;
+    bot.update(MockMessageText::new().text("some description")); // try to add description still
+    bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
 
     mock.assert(); // API request was sent
     assert_eq!(probe_mail.lock().await.alias_email, "added-alias-name@mock_domain");
@@ -414,7 +450,7 @@ async fn test_remove_alias_nonword_alias() {
 //   - [X] unexpected response
 //   - [X] error response
 //   - [X] invalid alias
-//   - [ ] failing to send probe email
+//   - [X] failing to send probe email
 // - [X] remove
 //   - [X] success path
 //   - [X] unexpected response
