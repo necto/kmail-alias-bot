@@ -1781,6 +1781,7 @@ dependencies = [
  "mail-send",
  "mockito",
  "pretty_env_logger",
+ "regex",
  "reqwest 0.12.9",
  "serde",
  "serde_json",

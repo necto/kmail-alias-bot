@@ -16,6 +16,7 @@ confy = "0.6.1"
 serde_json = "1.0.133"
 mail-send = "0.4.9"
 anyhow = "1.0.95"
+regex = "1.11.1"
 
 [dev-dependencies]
 mockito = "1.6.1"

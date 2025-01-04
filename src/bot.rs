@@ -176,13 +176,23 @@ async fn receive_alias_name_for_removal(
     Ok(())
 }
 
+fn is_valid_alias_name(name: &str) -> bool {
+    let allowed_re = regex::Regex::new(r"^[-a-zA-Z0-9!#$%^&*_+=?`{}|~]+$").unwrap();
+    allowed_re.is_match(name)
+}
+
 
 async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
-            // TODO: validation: single word, no '@', etc.
-            bot.send_message(msg.chat.id, "Enter the description of the alias").await?;
-            dialogue.update(State::ReceiveNewAliasDescription { alias_name }).await?;
+            if is_valid_alias_name(&alias_name) {
+                bot.send_message(msg.chat.id, "Enter the description of the alias").await?;
+                dialogue.update(State::ReceiveNewAliasDescription { alias_name }).await?;
+            } else {
+                bot.send_message(msg.chat.id,
+                                 format!("Invalid alias name '{}', aborting.", alias_name)).await?;
+                dialogue.update(State::Start).await?;
+            }
         }
         None => {
             bot.send_message(msg.chat.id, "Please, send me a single-word alias name.").await?;
@@ -201,6 +211,7 @@ async fn receive_alias_description(
     msg: Message,
     sender: EmailSender,
 ) -> HandlerResult {
+    // TODO: add an option to bail out without adding the alias
     match msg.text().map(ToOwned::to_owned) {
         Some(description) => {
             let domain = &config.domain_name;

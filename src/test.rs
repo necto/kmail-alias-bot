@@ -117,13 +117,12 @@ async fn test_add_alias_no_or_empty_response() {
     bot.update(MockMessageText::new().text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
     bot.update(MockMessageText::new().text("test description"));
-    bot.dispatch().await;
-    assert_eq!(bot.get_responses().sent_messages.last().unwrap().text(),
-               Some("Failed to add alias: Failed to parse add-alias response
+    bot.dispatch_and_check_last_text(
+        "Failed to add alias: Failed to parse add-alias response
 
 Caused by:
     0: error decoding response body
-    1: EOF while parsing a value at line 1 column 0"));
+    1: EOF while parsing a value at line 1 column 0").await;
 }
 
 #[tokio::test]
@@ -150,10 +149,24 @@ async fn test_add_alias_error_response() {
     bot.update(MockMessageText::new().text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
     bot.update(MockMessageText::new().text("test description"));
-    bot.dispatch().await;
-    assert_eq!(bot.get_responses().sent_messages.last().unwrap().text(),
-               Some("Failed to add alias: Error from server: Unprocessable Entity"));
+    bot.dispatch_and_check_last_text(
+        "Failed to add alias: Error from server: Unprocessable Entity").await;
     mock.assert();
+}
+
+#[tokio::test]
+async fn test_add_alias_invalid_alias() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("POST", mockito::Matcher::Any)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
+    bot.update(MockMessageText::new().text("invalid mock name"));
+    bot.dispatch_and_check_last_text("Invalid alias name 'invalid mock name', aborting.").await;
+    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
+    assert!(!mock.matched());
 }
 
 // TODO: test each action:
@@ -161,7 +174,7 @@ async fn test_add_alias_error_response() {
 //   - [X] success path
 //   - [X] unexpected response
 //   - [X] error response
-//   - [ ] invalid alias
+//   - [X] invalid alias
 //   - [ ] existing alias?
 // - [ ] remove
 //   - [ ] success path
