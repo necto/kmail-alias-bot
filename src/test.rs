@@ -10,6 +10,7 @@ use teloxide::{
     dispatching::dialogue::InMemStorage,
     prelude::*
 };
+use tokio::sync::Mutex;
 
 fn mock_config() -> Config {
     Config {
@@ -30,12 +31,19 @@ fn mock_config() -> Config {
     }
 }
 
+fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mutex<email::MockArgs>>) {
+    let config = mock_config();
+    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, kmail_url));
+    let bot = MockBot::new(first_update, schema());
+    let probe_email_args = EmailSender::new_args_observer();
+    let sender = EmailSender::new_mock(Ok(()), probe_email_args.clone());
+    bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client, sender]);
+    (bot, probe_email_args)
+}
+
 #[tokio::test]
 async fn test_invalid_msg() {
-    let config = mock_config();
-    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost"));
-    let bot = MockBot::new(MockMessageText::new().text("Hi!"), schema());
-    bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
+    let (bot, _) = mock_bot(MockMessageText::new().text("Hi!"), "localhost");
     bot.dispatch().await;
     let responses = bot.get_responses();
     let message = responses.sent_messages.last().unwrap();
@@ -44,10 +52,7 @@ async fn test_invalid_msg() {
 
 #[tokio::test]
 async fn test_help_msg() {
-    let config = mock_config();
-    let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "localhost"));
-    let bot = MockBot::new(MockMessageText::new().text("/help"), schema());
-    bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client]);
+    let (bot, _) = mock_bot(MockMessageText::new().text("/help"), "localhost");
     bot.dispatch().await;
     let responses = bot.get_responses();
     let message = responses.sent_messages.last().unwrap();
@@ -55,6 +60,11 @@ async fn test_help_msg() {
     assert!(message.text().unwrap().contains("/list"));
     assert!(message.text().unwrap().contains("/add"));
     assert!(message.text().unwrap().contains("/remove"));
+}
+
+fn mock_kmail_api(url: &str) -> Arc<KMailApi> {
+    let config = mock_config();
+    Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, url))
 }
 
 // TODO: find out why the doc describe a different shape of the response
@@ -79,8 +89,7 @@ async fn test_api_list_aliases() {
                         .create_async()
                         .await;
 
-    let config = mock_config();
-    let api = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, &server.url()));
+    let api = mock_kmail_api(&server.url());
     let list = api.list_aliases().await.unwrap();
     assert_eq!(list, vec!["aaa", "bbb", "ccc"]);
     mock.assert();
@@ -101,13 +110,7 @@ async fn test_api_add_aliases() {
                         .create_async()
                         .await;
 
-    let config = mock_config();
-    let api = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, &server.url()));
-
-    let bot = MockBot::new(MockMessageText::new().text("/add"), schema());
-    let probe_email_args = EmailSender::new_args_observer();
-    let sender = EmailSender::new_mock(Ok(()), probe_email_args.clone());
-    bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api, sender]);
+    let (bot, probe_mail) = mock_bot(MockMessageText::new().text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
     bot.update(MockMessageText::new().text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
@@ -115,13 +118,13 @@ async fn test_api_add_aliases() {
     bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
 
     mock.assert(); // API request was sent
-    assert_eq!(probe_email_args.lock().await.alias_email, "added-alias-name@mock_domain");
-    assert_eq!(probe_email_args.lock().await.description, "test description");
-    assert_eq!(probe_email_args.lock().await.alias_name, "added-alias-name");
+    assert_eq!(probe_mail.lock().await.alias_email, "added-alias-name@mock_domain");
+    assert_eq!(probe_mail.lock().await.description, "test description");
+    assert_eq!(probe_mail.lock().await.alias_name, "added-alias-name");
 }
 
 #[tokio::test]
-async fn test_add_aliases_success() {
+async fn test_add_aliases_success() { // is it a duplicate of test_api_add_aliases?
     let mut server = Server::new_async().await;
     let mock = server.mock("POST", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
                      .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
@@ -135,13 +138,7 @@ async fn test_add_aliases_success() {
                         .create_async()
                         .await;
 
-    let config = mock_config();
-    let api = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, &server.url()));
-
-    let bot = MockBot::new(MockMessageText::new().text("/add"), schema());
-    let probe_email_args = EmailSender::new_args_observer();
-    let sender = EmailSender::new_mock(Ok(()), probe_email_args.clone());
-    bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api, sender]);
+    let (bot, probe_mail) = mock_bot(MockMessageText::new().text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
     bot.update(MockMessageText::new().text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
@@ -149,9 +146,9 @@ async fn test_add_aliases_success() {
     bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
 
     mock.assert(); // API request was sent
-    assert_eq!(probe_email_args.lock().await.alias_email, "added-alias-name@mock_domain");
-    assert_eq!(probe_email_args.lock().await.description, "test description");
-    assert_eq!(probe_email_args.lock().await.alias_name, "added-alias-name");
+    assert_eq!(probe_mail.lock().await.alias_email, "added-alias-name@mock_domain");
+    assert_eq!(probe_mail.lock().await.description, "test description");
+    assert_eq!(probe_mail.lock().await.alias_name, "added-alias-name");
 }
 
 // TODO: test each action:

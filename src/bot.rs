@@ -50,8 +50,7 @@ type KMailBot = Dispatcher<teloxide::Bot,
                            Box<(dyn std::error::Error + Send + std::marker::Sync + 'static)>,
                            DefaultKey>;
 
-pub fn make_bot(config: Config)
-                -> KMailBot {
+pub fn make_bot(config: Config) -> KMailBot {
     let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, "https://api.infomaniak.com"));
 
     let bot = Bot::new(&config.teloxide_token);
