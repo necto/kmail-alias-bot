@@ -4,11 +4,6 @@ use tokio::sync::Mutex;
 use crate::config::Config;
 use std::sync::Arc;
 
-#[derive(Debug, Default, Clone)]
-struct SmtpEmailSender {
-    config: Config
-}
-
 #[derive(Debug, Clone)]
 pub struct MockArgs {
     pub alias_email: String,
@@ -17,20 +12,17 @@ pub struct MockArgs {
 }
 
 #[derive(Debug, Clone)]
-struct MockEmailSender {
-    probe_email_result: Result<(), String>,
-    last_args: Arc<Mutex<MockArgs>>
-}
-
-#[derive(Debug, Clone)]
 pub enum EmailSender {
-    Smtp(SmtpEmailSender),
-    Mock(MockEmailSender)
+    Smtp{config: Config},
+    Mock {
+        probe_email_result: Result<(), String>,
+        last_args: Arc<Mutex<MockArgs>>
+    }
 }
 
 impl EmailSender {
     pub fn new(config: Config) -> Self {
-        EmailSender::Smtp(SmtpEmailSender { config })
+        EmailSender::Smtp{ config }
     }
 
     pub fn new_args_observer() -> Arc<Mutex<MockArgs>> {
@@ -40,22 +32,22 @@ impl EmailSender {
     }
 
     pub fn new_mock(result: Result<(), String>, args_observer: Arc<Mutex<MockArgs>>) -> Self {
-        EmailSender::Mock(MockEmailSender{
+        EmailSender::Mock{
             probe_email_result: result,
             last_args: args_observer
-        })
+        }
     }
 
     pub async fn send_probe_email(&self, alias_email: &str, alias_name: &str, description: &str) -> Result<(), String> {
         match self {
-            EmailSender::Smtp(sender) => send_probe_email(&sender.config, alias_email, alias_name, description).await,
-            EmailSender::Mock(mock) => {
-                *mock.last_args.lock().await = MockArgs {
+            EmailSender::Smtp{config} => send_probe_email(&config, alias_email, alias_name, description).await,
+            EmailSender::Mock{probe_email_result, last_args} => {
+                *last_args.lock().await = MockArgs {
                     alias_email: alias_email.to_string(),
                     alias_name: alias_name.to_string(),
                     description: description.to_string()
                 };
-                mock.probe_email_result.clone()
+                probe_email_result.clone()
             }
         }
     }
