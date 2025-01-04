@@ -1,4 +1,5 @@
 use reqwest;
+use anyhow::Context;
 use serde::{Serialize, Deserialize};
 
 pub struct KMailApi {
@@ -67,7 +68,7 @@ impl KMailApi {
         Ok(resp.data.aliases)
     }
 
-    pub async fn add_alias(&self, alias: &str) -> Result<(), String> {
+    pub async fn add_alias(&self, alias: &str) -> anyhow::Result<()> {
         // Add an alias
         // https://developer.infomaniak.com/docs/api/post/1/mail_hostings/%7Bmail_hosting_id%7D/mailboxes/%7Bmailbox_name%7D/aliases
         let mail_id = &self.mail_id;
@@ -78,14 +79,15 @@ impl KMailApi {
                        .json(&AddAlias { alias: alias.to_owned() })
                        .header(reqwest::header::AUTHORIZATION, "Bearer ".to_owned() + &self.token)
                        .send()
-                       .await.expect("Failed to send request") // TODO: differentiate errors
+                       .await
+                       .context("Failed to send add-alias request")?
                        .json::<ManipulateAliasResult>()
-            .await.expect("Failed to parse response"); // TODO: more detailed error
+            .await.context("Failed to parse add-alias response")?;
         log::info!("Response: {:?}", resp);
         if resp.result == "success" {
             Ok(())
         } else {
-            Err(resp.error.unwrap().description)
+            anyhow::bail!("Error from server: {}", resp.error.unwrap().description)
         }
     }
 

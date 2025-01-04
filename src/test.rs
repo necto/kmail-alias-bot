@@ -62,13 +62,13 @@ async fn test_api_list_aliases() {
                      .with_body(r#"
 
 {
-"result":"success",
-"data":{
-"enable_alias":1,
-"aliases":[
-"aaa", "bbb", "ccc"
-]
-}
+    "result":"success",
+    "data":{
+        "enable_alias":1,
+        "aliases":[
+            "aaa", "bbb", "ccc"
+        ]
+    }
 }
 "#)
                         .create_async()
@@ -81,15 +81,15 @@ async fn test_api_list_aliases() {
 }
 
 #[tokio::test]
-async fn test_add_aliases_success() {
+async fn test_add_alias_success() {
     let mut server = Server::new_async().await;
     let mock = server.mock("POST", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
                      .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
                      .with_body(r#"
 
 {
-"result":"success",
-"data":true
+    "result":"success",
+    "data":true
 }
 "#)
                         .create_async()
@@ -109,8 +109,7 @@ async fn test_add_aliases_success() {
 }
 
 #[tokio::test]
-#[should_panic] // FIXME: should complain into the chat instead
-async fn test_add_aliases_no_response() {
+async fn test_add_alias_no_or_empty_response() {
     let server = Server::new_async().await;
     // No mock response added
     let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
@@ -118,28 +117,59 @@ async fn test_add_aliases_no_response() {
     bot.update(MockMessageText::new().text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
     bot.update(MockMessageText::new().text("test description"));
-    bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
+    bot.dispatch().await;
+    assert_eq!(bot.get_responses().sent_messages.last().unwrap().text(),
+               Some("Failed to add alias: Failed to parse add-alias response
 
-    // TODO: assert: complained to the chat user
+Caused by:
+    0: error decoding response body
+    1: EOF while parsing a value at line 1 column 0"));
+}
+
+#[tokio::test]
+async fn test_add_alias_error_response() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("POST", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+{
+    "result":"error",
+    "error":{
+        "code":"unprocessable_entity",
+        "description":"Unprocessable Entity",
+        "errors":[
+        ]
+    }
+}
+
+"#)
+                        .create_async()
+                        .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
+    bot.update(MockMessageText::new().text("added-alias-name"));
+    bot.dispatch_and_check_last_text("Enter the description of the alias").await;
+    bot.update(MockMessageText::new().text("test description"));
+    bot.dispatch().await;
+    assert_eq!(bot.get_responses().sent_messages.last().unwrap().text(),
+               Some("Failed to add alias: Error from server: Unprocessable Entity"));
+    mock.assert();
 }
 
 // TODO: test each action:
 // - [ ] add
 //   - [X] success path
-//   - [ ] no response
 //   - [X] unexpected response
-//   - [ ] error response
+//   - [X] error response
 //   - [ ] invalid alias
 //   - [ ] existing alias?
 // - [ ] remove
 //   - [ ] success path
-//   - [ ] no response
 //   - [ ] unexpected response
 //   - [ ] error response
 //   - [ ] invalid alias
 // - [ ] list
 //   - [ ] success path
-//   - [ ] no response
 //   - [ ] unexpected response
 //   - [ ] error response
 // - [ ] user enters incorrect command

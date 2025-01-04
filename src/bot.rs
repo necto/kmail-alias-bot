@@ -252,7 +252,7 @@ async fn receive_alias_description(
                 Err(e) => {
                     bot.send_message(
                         dialogue.chat_id(),
-                        format!("Failed to add alias: {e}"),
+                        format!("Failed to add alias: {e:?}"),
                     )
                        .await?;
                 }
