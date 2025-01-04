@@ -147,7 +147,6 @@ async fn receive_alias_name_for_removal(
     match msg.text().map(ToOwned::to_owned) {
         Some(alias_name) => {
             let domain = &config.domain_name;
-            // TODO: validation: matches one of the existing aliases
             bot.send_message(msg.chat.id, format!("Removing alias {alias_name}@{domain}")).await?;
 
             match client.remove_alias(&alias_name).await {
@@ -212,7 +211,6 @@ async fn receive_alias_description(
     msg: Message,
     sender: EmailSender,
 ) -> HandlerResult {
-    // TODO: add an option to bail out without adding the alias
     match msg.text().map(ToOwned::to_owned) {
         Some(description) => {
             let domain = &config.domain_name;

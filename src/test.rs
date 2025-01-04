@@ -184,13 +184,44 @@ async fn test_add_alias_nonword() {
     assert!(!mock.matched());
 }
 
+#[tokio::test]
+async fn test_add_alias_cancel_on_name() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("POST", mockito::Matcher::Any)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
+    bot.update(MockMessageText::new().text("/cancel"));
+    bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
+    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
+    assert!(!mock.matched());
+}
+
+#[tokio::test]
+async fn test_add_alias_cancel_on_description() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("POST", mockito::Matcher::Any)
+                     .create_async()
+                     .await;
+    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
+    bot.update(MockMessageText::new().text("alias-name"));
+    bot.dispatch_and_check_last_text("Enter the description of the alias").await;
+    bot.update(MockMessageText::new().text("/cancel"));
+    bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
+    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
+    assert!(!mock.matched());
+}
+
 // TODO: test each action:
-// - [ ] add
+// - [X] add
 //   - [X] success path
 //   - [X] unexpected response
 //   - [X] error response
 //   - [X] invalid alias
-//   - [ ] existing alias?
 // - [ ] remove
 //   - [ ] success path
 //   - [ ] unexpected response
