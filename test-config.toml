@@ -1,0 +1,18 @@
+# Telegram token from BotFather
+teloxide_token = "123teloxide_api_token"
+# kMail token for API access
+kmail_token = "123mock_kmail_token"
+
+# domain for e-mail aliasing
+domain_name = "mock_domain"
+mail_hosting_id = "mock_mail_hosting_id"
+mailbox_name = "mock_name"
+
+# probing e-mail config
+[probe_mail]
+sender_password = "mock_sender_password"
+sender_email = "mock_sender_email"
+sender_name = "mock_sender_name"
+sender_host = "mock_sender_host"
+sender_port = 1234
+receiver_name = "mock_receiver_name"

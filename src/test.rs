@@ -2,7 +2,6 @@ use crate::email::EmailSender;
 use crate::bot::State;
 use super::*;
 use std::sync::Arc;
-use config::ProbeMailConfig;
 use kmail_api::KMailApi;
 use mockito::Server;
 use bot::schema;
@@ -14,24 +13,7 @@ use teloxide::{
 use tokio::sync::Mutex;
 
 fn mock_config() -> Config {
-    Config {
-        teloxide_token: "123teloxide_api_token".to_string(),
-
-        kmail_token: "123mock_kmail_token".to_string(),
-        mail_hosting_id: "mock_mail_hosting_id".to_string(),
-        mailbox_name: "mock_name".to_string(),
-
-        domain_name: "mock_domain".to_string(),
-
-        probe_mail : ProbeMailConfig {
-            sender_password: "mock_sender_password".to_string(),
-            sender_email: "mock_sender_email".to_string(),
-            sender_name: "mock_sender_name".to_string(),
-            sender_host: "mock_sender_host".to_string(),
-            sender_port: 1234,
-            receiver_name: "mock_receiver_name".to_string()
-        }
-    }
+    Config::new("test-config.toml")
 }
 
 fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mutex<email::mock::ProbeArgs>>) {
