@@ -14,7 +14,7 @@ async fn main() {
     pretty_env_logger::init();
     log::info!("Starting kMail alias bot...");
 
-    let config = Config::new();
+    let config = Config::new("kmail-alias.toml");
     let mut bot = make_bot(config);
     bot.dispatch().await;
 }

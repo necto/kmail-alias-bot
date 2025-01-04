@@ -2,6 +2,7 @@ use crate::email::EmailSender;
 use crate::bot::State;
 use super::*;
 use std::sync::Arc;
+use config::ProbeMailConfig;
 use kmail_api::KMailApi;
 use mockito::Server;
 use bot::schema;
@@ -22,12 +23,14 @@ fn mock_config() -> Config {
 
         domain_name: "mock_domain".to_string(),
 
-        probe_mail_sender_password: "mock_sender_password".to_string(),
-        probe_mail_sender_email: "mock_sender_email".to_string(),
-        probe_mail_sender_name: "mock_sender_name".to_string(),
-        probe_mail_sender_host: "mock_sender_host".to_string(),
-        probe_mail_sender_port: 1234,
-        probe_mail_receiver_name: "mock_receiver_name".to_string()
+        probe_mail : ProbeMailConfig {
+            sender_password: "mock_sender_password".to_string(),
+            sender_email: "mock_sender_email".to_string(),
+            sender_name: "mock_sender_name".to_string(),
+            sender_host: "mock_sender_host".to_string(),
+            sender_port: 1234,
+            receiver_name: "mock_receiver_name".to_string()
+        }
     }
 }
 

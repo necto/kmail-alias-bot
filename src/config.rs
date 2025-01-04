@@ -2,6 +2,16 @@ use serde::{Serialize, Deserialize};
 use confy;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct ProbeMailConfig {
+    pub sender_password: String,
+    pub sender_email: String,
+    pub sender_name: String,
+    pub sender_host: String,
+    pub sender_port: u16,
+    pub receiver_name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Config {
     // Telegram bot API access
     pub teloxide_token: String,
@@ -15,18 +25,12 @@ pub struct Config {
     // e.g. "example.com" in "john@example.com"
     pub domain_name: String,
 
-    // Email probe for a newly created alias
-    pub probe_mail_sender_password: String,
-    pub probe_mail_sender_email: String,
-    pub probe_mail_sender_name: String,
-    pub probe_mail_sender_host: String,
-    pub probe_mail_sender_port: u16,
-    pub probe_mail_receiver_name: String,
+    pub probe_mail: ProbeMailConfig,
 }
 
 impl Config {
-    pub fn new() -> Self {
-        let ret: Config = confy::load_path("kmail-alias.toml").expect("Failed to load config");
+    pub fn new(toml_path: &str) -> Self {
+        let ret: Config = confy::load_path(toml_path).expect("Failed to load config");
         ret.validate();
         ret
     }
@@ -47,23 +51,23 @@ impl Config {
         if self.domain_name.is_empty() {
             panic!("domain_name is empty");
         }
-        if self.probe_mail_sender_password.is_empty() {
-            panic!("probe_mail_sender_password is empty");
+        if self.probe_mail.sender_password.is_empty() {
+            panic!("probe_mail.sender_password is empty");
         }
-        if self.probe_mail_sender_email.is_empty() {
-            panic!("probe_mail_sender_email is empty");
+        if self.probe_mail.sender_email.is_empty() {
+            panic!("probe_mail.sender_email is empty");
         }
-        if self.probe_mail_sender_name.is_empty() {
-            panic!("probe_mail_sender_name is empty");
+        if self.probe_mail.sender_name.is_empty() {
+            panic!("probe_mail.sender_name is empty");
         }
-        if self.probe_mail_sender_host.is_empty() {
-            panic!("probe_mail_sender_host is empty");
+        if self.probe_mail.sender_host.is_empty() {
+            panic!("probe_mail.sender_host is empty");
         }
-        if self.probe_mail_sender_port == 0 {
-            panic!("probe_mail_sender_port is empty");
+        if self.probe_mail.sender_port == 0 {
+            panic!("probe_mail.sender_port is empty");
         }
-        if self.probe_mail_receiver_name.is_empty() {
-            panic!("probe_mail_receiver_name is empty");
+        if self.probe_mail.receiver_name.is_empty() {
+            panic!("probe_mail.receiver_name is empty");
         }
     }
 }

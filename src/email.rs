@@ -39,17 +39,17 @@ async fn send_probe_email(
     alias_name: &str,
     description: &str
 ) -> Result<(), String> {
-    match SmtpClientBuilder::new(config.probe_mail_sender_host.as_str(),
-                                 config.probe_mail_sender_port)
+    match SmtpClientBuilder::new(config.probe_mail.sender_host.as_str(),
+                                 config.probe_mail.sender_port)
         .implicit_tls(false)
-        .credentials((config.probe_mail_sender_email.as_str(),
-                      config.probe_mail_sender_password.as_str()))
+        .credentials((config.probe_mail.sender_email.as_str(),
+                      config.probe_mail.sender_password.as_str()))
         .connect()
         .await {
             Ok(mut client) => {
                 let message = MessageBuilder::new()
-                    .from((config.probe_mail_sender_name.as_str(), config.probe_mail_sender_email.as_str()))
-                    .to((config.probe_mail_receiver_name.as_str(), alias_email))
+                    .from((config.probe_mail.sender_name.as_str(), config.probe_mail.sender_email.as_str()))
+                    .to((config.probe_mail.receiver_name.as_str(), alias_email))
                     .subject(format!("Probe email for {alias_name} with description"))
                     .text_body(format!("Description: \n{description}"));
                 match client.send(message).await {
