@@ -1,9 +1,19 @@
+use serde::{Serialize, Deserialize};
 use mail_send::{mail_builder::MessageBuilder, SmtpClientBuilder};
-// TODO: passs the cfg as a separate struct
-use crate::config::Config;
 
 #[cfg(test)]
 pub mod mock;
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Config {
+    pub sender_password: String,
+    pub sender_email: String,
+    pub sender_name: String,
+    pub sender_host: String,
+    pub sender_port: u16,
+    pub receiver_name: String,
+}
+
 
 #[derive(Debug, Clone)]
 pub enum EmailSender {
@@ -39,17 +49,17 @@ async fn send_probe_email(
     alias_name: &str,
     description: &str
 ) -> Result<(), String> {
-    match SmtpClientBuilder::new(config.probe_mail.sender_host.as_str(),
-                                 config.probe_mail.sender_port)
+    match SmtpClientBuilder::new(config.sender_host.as_str(),
+                                 config.sender_port)
         .implicit_tls(false)
-        .credentials((config.probe_mail.sender_email.as_str(),
-                      config.probe_mail.sender_password.as_str()))
+        .credentials((config.sender_email.as_str(),
+                      config.sender_password.as_str()))
         .connect()
         .await {
             Ok(mut client) => {
                 let message = MessageBuilder::new()
-                    .from((config.probe_mail.sender_name.as_str(), config.probe_mail.sender_email.as_str()))
-                    .to((config.probe_mail.receiver_name.as_str(), alias_email))
+                    .from((config.sender_name.as_str(), config.sender_email.as_str()))
+                    .to((config.receiver_name.as_str(), alias_email))
                     .subject(format!("Probe email for {alias_name} with description"))
                     .text_body(format!("Description: \n{description}"));
                 match client.send(message).await {
@@ -67,3 +77,25 @@ async fn send_probe_email(
         }
 }
 
+impl Config {
+    pub fn validate(&self) {
+        if self.sender_password.is_empty() {
+            panic!("probe_mail.sender_password is empty");
+        }
+        if self.sender_email.is_empty() {
+            panic!("probe_mail.sender_email is empty");
+        }
+        if self.sender_name.is_empty() {
+            panic!("probe_mail.sender_name is empty");
+        }
+        if self.sender_host.is_empty() {
+            panic!("probe_mail.sender_host is empty");
+        }
+        if self.sender_port == 0 {
+            panic!("probe_mail.sender_port is empty");
+        }
+        if self.receiver_name.is_empty() {
+            panic!("probe_mail.receiver_name is empty");
+        }
+    }
+}

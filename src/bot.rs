@@ -55,7 +55,7 @@ pub fn make_bot(config: Config) -> KMailBot {
 
     let bot = Bot::new(&config.teloxide_token);
 
-    let mail_sender = EmailSender::new(config.clone());
+    let mail_sender = EmailSender::new(config.probe_mail.clone());
 
     Dispatcher::builder(bot, schema())
         .dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client, mail_sender])

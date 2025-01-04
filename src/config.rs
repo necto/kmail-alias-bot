@@ -2,16 +2,6 @@ use serde::{Serialize, Deserialize};
 use confy;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct ProbeMailConfig {
-    pub sender_password: String,
-    pub sender_email: String,
-    pub sender_name: String,
-    pub sender_host: String,
-    pub sender_port: u16,
-    pub receiver_name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Config {
     // Telegram bot API access
     pub teloxide_token: String,
@@ -25,7 +15,7 @@ pub struct Config {
     // e.g. "example.com" in "john@example.com"
     pub domain_name: String,
 
-    pub probe_mail: ProbeMailConfig,
+    pub probe_mail: crate::email::Config,
 }
 
 impl Config {
@@ -51,23 +41,6 @@ impl Config {
         if self.domain_name.is_empty() {
             panic!("domain_name is empty");
         }
-        if self.probe_mail.sender_password.is_empty() {
-            panic!("probe_mail.sender_password is empty");
-        }
-        if self.probe_mail.sender_email.is_empty() {
-            panic!("probe_mail.sender_email is empty");
-        }
-        if self.probe_mail.sender_name.is_empty() {
-            panic!("probe_mail.sender_name is empty");
-        }
-        if self.probe_mail.sender_host.is_empty() {
-            panic!("probe_mail.sender_host is empty");
-        }
-        if self.probe_mail.sender_port == 0 {
-            panic!("probe_mail.sender_port is empty");
-        }
-        if self.probe_mail.receiver_name.is_empty() {
-            panic!("probe_mail.receiver_name is empty");
-        }
+        self.probe_mail.validate();
     }
 }
