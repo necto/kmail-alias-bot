@@ -1,22 +1,17 @@
 use mail_send::{mail_builder::MessageBuilder, SmtpClientBuilder};
-use tokio::sync::Mutex;
 // TODO: passs the cfg as a separate struct
 use crate::config::Config;
-use std::sync::Arc;
 
-#[derive(Debug, Clone)]
-pub struct MockArgs {
-    pub alias_email: String,
-    pub alias_name: String,
-    pub description: String
-}
+#[cfg(test)]
+pub mod mock;
 
 #[derive(Debug, Clone)]
 pub enum EmailSender {
     Smtp{config: Config},
+    #[cfg(test)]
     Mock {
         probe_email_result: Result<(), String>,
-        last_args: Arc<Mutex<MockArgs>>
+        last_args: std::sync::Arc<tokio::sync::Mutex<mock::ProbeArgs>>
     }
 }
 
@@ -25,28 +20,13 @@ impl EmailSender {
         EmailSender::Smtp{ config }
     }
 
-    pub fn new_args_observer() -> Arc<Mutex<MockArgs>> {
-        Arc::new(Mutex::new(MockArgs{alias_email: "".to_string(),
-                                     alias_name: "".to_string(),
-                                     description: "".to_string()}))
-    }
-
-    pub fn new_mock(result: Result<(), String>, args_observer: Arc<Mutex<MockArgs>>) -> Self {
-        EmailSender::Mock{
-            probe_email_result: result,
-            last_args: args_observer
-        }
-    }
-
     pub async fn send_probe_email(&self, alias_email: &str, alias_name: &str, description: &str) -> Result<(), String> {
         match self {
             EmailSender::Smtp{config} => send_probe_email(&config, alias_email, alias_name, description).await,
+            #[cfg(test)]
             EmailSender::Mock{probe_email_result, last_args} => {
-                *last_args.lock().await = MockArgs {
-                    alias_email: alias_email.to_string(),
-                    alias_name: alias_name.to_string(),
-                    description: description.to_string()
-                };
+                *last_args.lock().await =
+                    mock::ProbeArgs::new(alias_email, alias_name, description);
                 probe_email_result.clone()
             }
         }
@@ -86,3 +66,4 @@ async fn send_probe_email(
             }
         }
 }
+

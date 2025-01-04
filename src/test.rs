@@ -31,11 +31,11 @@ fn mock_config() -> Config {
     }
 }
 
-fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mutex<email::MockArgs>>) {
+fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mutex<email::mock::ProbeArgs>>) {
     let config = mock_config();
     let api_client = Arc::new(KMailApi::new(&config.kmail_token, &config.mail_hosting_id, &config.mailbox_name, kmail_url));
     let bot = MockBot::new(first_update, schema());
-    let probe_email_args = EmailSender::new_args_observer();
+    let probe_email_args = email::mock::new_args_observer();
     let sender = EmailSender::new_mock(Ok(()), probe_email_args.clone());
     bot.dependencies(dptree::deps![InMemStorage::<State>::new(), config, api_client, sender]);
     (bot, probe_email_args)
