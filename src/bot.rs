@@ -70,7 +70,7 @@ pub fn make_bot(config: Config) -> KMailBot {
 
     let mail_sender = EmailSender::new(config.probe_mail);
 
-    Dispatcher::builder(bot, schema())
+    Dispatcher::builder(bot, schema(config.authorized_user_id))
         .dependencies(dptree::deps![
             InMemStorage::<State>::new(),
             DomainName::new(config.domain_name),
@@ -81,9 +81,21 @@ pub fn make_bot(config: Config) -> KMailBot {
         .build()
 }
 
-// FIXME: should it be private?
-pub fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>> {
+// Public for testing
+pub fn schema(authorized_user_id: u64) -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>> {
     use dptree::case;
+    use dptree::filter;
+
+    let allowed_user_id = teloxide::types::UserId(authorized_user_id);
+
+    // Filter function for allowed user ID
+    let unauthorized_filter = filter(move |msg: Message| {
+        if let Some(user) = msg.from {
+            user.id != allowed_user_id
+        } else {
+           true
+        }
+    });
 
     let command_handler = teloxide::filter_command::<Command, _>()
         .branch(
@@ -96,6 +108,7 @@ pub fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'stat
         .branch(case![Command::Cancel].endpoint(cancel));
 
     let message_handler = Update::filter_message()
+        .branch(unauthorized_filter.endpoint(unauthorized_user))
         .branch(command_handler)
         .branch(case![State::ReceiveNewAliasName].endpoint(receive_new_alias_name))
         .branch(case![State::ReceiveNewAliasDescription { alias_name  }].endpoint(receive_alias_description))
@@ -146,6 +159,19 @@ async fn start_removing_alias(bot: Bot, dialogue: MyDialogue, msg: Message) -> H
 async fn cancel(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     bot.send_message(msg.chat.id, "Cancelling the dialogue.").await?;
     dialogue.exit().await?;
+    Ok(())
+}
+
+fn get_user_id(msg: &Message) -> String {
+    msg.from.as_ref().map(|user| user.id.to_string()).unwrap_or("unknown".to_string())
+}
+
+async fn unauthorized_user(bot: Bot, msg: Message) -> HandlerResult {
+    log::warn!("Unauthorized user: {:?}", msg.from);
+    let user_id = get_user_id(&msg);
+    bot.send_message(msg.chat.id,
+                     format!("Unauthorized user {user_id}, please contact the administrator."))
+       .await?;
     Ok(())
 }
 

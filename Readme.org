@@ -1,15 +1,14 @@
 * A simple Telegram bot to facilitate creation of e-mail aliases in Infomaniak's kMail
 
-** Planned features
+** Features
 - [X] Get the kMail and the Telegram API tokens, domain name, mailbox id, and account id from a config file
-- [ ] Get the owner TG handle from a config file, and communicate only with the
-  owner.
+- [X] Get the owner TG handle from a config file, and communicate only with the owner.
 - [X] ~/add~ command to create an alias
   - Accepts alias name (before '@' part) description (purpose)
   - [X] Invokes the POST API to add the alias
   - [X] In addition to creating the alias, also sends a test e-mail to the newly
-    created address, with the provided description. this surves a double purpose of
-    documenting the alias itself
+    created address, with the provided description. this surves a double purpose
+    of documenting the alias itself
 - [X] ~/list~ command to list all the aliases
 - [X] ~/remove~ command to remove an alias
 - [ ] A docker container and a sample docker-compose file to conveniently deploy
@@ -18,4 +17,5 @@
 ** Running
 #+begin_src
 guix shell rust rust-cargo openssl pkg-config
+RUST_LOG=debug cargo run
 #+end_src

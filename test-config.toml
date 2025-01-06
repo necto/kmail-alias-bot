@@ -1,6 +1,7 @@
 # Telegram token from BotFather
 teloxide_token = "123teloxide_api_token"
 domain_name = "mock_domain" # domain for e-mail aliasing
+authorized_user_id = 1234
 
 [kmail_api]
 token = "123mock_kmail_token"

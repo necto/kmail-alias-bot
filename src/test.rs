@@ -5,7 +5,7 @@ use std::sync::Arc;
 use kmail_api::KMailApi;
 use mockito::Server;
 use bot::{schema, DomainName};
-use teloxide_tests::{MockBot, MockMessageText, MockMessageSticker};
+use teloxide_tests::{MockBot, MockMessageSticker, MockMessageText, MockUser};
 use teloxide::{
     dispatching::dialogue::InMemStorage,
     prelude::*
@@ -20,7 +20,7 @@ fn mock_bot_full(first_update: MockMessageText, kmail_url: &str, probe_email_res
                  -> (MockBot, Arc<Mutex<email::mock::ProbeArgs>>) {
     let config = mock_config();
     let api_client = Arc::new(KMailApi::new(config.kmail_api, kmail_url));
-    let bot = MockBot::new(first_update, schema());
+    let bot = MockBot::new(first_update, schema(config.authorized_user_id));
     let probe_email_args = email::mock::new_args_observer();
     let sender = EmailSender::new_mock(probe_email_result, probe_email_args.clone());
     bot.dependencies(dptree::deps![InMemStorage::<State>::new(), DomainName::new(config.domain_name), api_client, sender]);
@@ -31,9 +31,19 @@ fn mock_bot(first_update: MockMessageText, kmail_url: &str) -> (MockBot, Arc<Mut
     mock_bot_full(first_update, kmail_url, Ok(()))
 }
 
+fn message_text(text: &str) -> MockMessageText {
+    let mock_user = MockUser::new().id(1234).build();
+    MockMessageText::new().from(mock_user).text(text)
+}
+
+fn message_sticker(emoji: &str) -> MockMessageSticker {
+    let mock_user = MockUser::new().id(1234).build();
+    MockMessageSticker::new().from(mock_user).emoji(emoji)
+}
+
 #[tokio::test]
 async fn test_invalid_msg() {
-    let (bot, _) = mock_bot(MockMessageText::new().text("Hi!"), "localhost");
+    let (bot, _) = mock_bot(message_text("Hi!"), "localhost");
     bot.dispatch().await;
     let responses = bot.get_responses();
     let message = responses.sent_messages.last().unwrap();
@@ -42,7 +52,7 @@ async fn test_invalid_msg() {
 
 #[tokio::test]
 async fn test_help_msg() {
-    let (bot, _) = mock_bot(MockMessageText::new().text("/help"), "localhost");
+    let (bot, _) = mock_bot(message_text("/help"), "localhost");
     bot.dispatch().await;
     let responses = bot.get_responses();
     let message = responses.sent_messages.last().unwrap();
@@ -101,11 +111,11 @@ async fn test_add_alias_success() {
                         .create_async()
                         .await;
 
-    let (bot, probe_mail) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    let (bot, probe_mail) = mock_bot(message_text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageText::new().text("added-alias-name"));
+    bot.update(message_text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
-    bot.update(MockMessageText::new().text("test description"));
+    bot.update(message_text("test description"));
     bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
 
     mock.assert(); // API request was sent
@@ -130,13 +140,13 @@ async fn test_add_alias_probe_email_fails() {
                         .await;
 
     let mail_error = Err("mock error".to_string());
-    let (bot, probe_mail) = mock_bot_full(MockMessageText::new().text("/add"), &server.url(), mail_error);
+    let (bot, probe_mail) = mock_bot_full(message_text("/add"), &server.url(), mail_error);
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageText::new().text("added-alias-name"));
+    bot.update(message_text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
-    bot.update(MockMessageText::new().text("test description"));
+    bot.update(message_text("test description"));
     bot.dispatch_and_check_last_text("Failed to send probe email: mock error").await;
-    bot.update(MockMessageText::new().text("some description")); // try to add description still
+    bot.update(message_text("some description")); // try to add description still
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
 
     mock.assert(); // API request was sent
@@ -149,11 +159,11 @@ async fn test_add_alias_probe_email_fails() {
 async fn test_add_alias_no_or_empty_response() {
     let server = Server::new_async().await;
     // No mock response added
-    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    let (bot, _) = mock_bot(message_text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageText::new().text("added-alias-name"));
+    bot.update(message_text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
-    bot.update(MockMessageText::new().text("test description"));
+    bot.update(message_text("test description"));
     bot.dispatch_and_check_last_text(
         "Failed to add alias: Failed to parse add-alias response
 
@@ -181,11 +191,11 @@ async fn test_add_alias_error_response() {
 "#)
                         .create_async()
                         .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    let (bot, _) = mock_bot(message_text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageText::new().text("added-alias-name"));
+    bot.update(message_text("added-alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
-    bot.update(MockMessageText::new().text("test description"));
+    bot.update(message_text("test description"));
     bot.dispatch_and_check_last_text(
         "Failed to add alias: Error from server: Unprocessable Entity").await;
     mock.assert();
@@ -197,11 +207,11 @@ async fn test_add_alias_invalid_alias() {
     let mock = server.mock("POST", mockito::Matcher::Any)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    let (bot, _) = mock_bot(message_text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageText::new().text("invalid mock name"));
+    bot.update(message_text("invalid mock name"));
     bot.dispatch_and_check_last_text("Invalid alias name 'invalid mock name', aborting.").await;
-    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.update(message_text("test description")); // try to add description anyway
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
 }
@@ -212,11 +222,11 @@ async fn test_add_alias_nonword() {
     let mock = server.mock("POST", mockito::Matcher::Any)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    let (bot, _) = mock_bot(message_text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageSticker::new().emoji("👍"));
+    bot.update(message_sticker("👍"));
     bot.dispatch_and_check_last_text("Got a non-text, aborting.").await;
-    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.update(message_text("test description")); // try to add description anyway
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
 }
@@ -227,11 +237,11 @@ async fn test_add_alias_cancel_on_name() {
     let mock = server.mock("POST", mockito::Matcher::Any)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    let (bot, _) = mock_bot(message_text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageText::new().text("/cancel"));
+    bot.update(message_text("/cancel"));
     bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
-    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.update(message_text("test description")); // try to add description anyway
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
 }
@@ -242,13 +252,13 @@ async fn test_add_alias_cancel_on_description() {
     let mock = server.mock("POST", mockito::Matcher::Any)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/add"), &server.url());
+    let (bot, _) = mock_bot(message_text("/add"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
-    bot.update(MockMessageText::new().text("alias-name"));
+    bot.update(message_text("alias-name"));
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
-    bot.update(MockMessageText::new().text("/cancel"));
+    bot.update(message_text("/cancel"));
     bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
-    bot.update(MockMessageText::new().text("test description")); // try to add description anyway
+    bot.update(message_text("test description")); // try to add description anyway
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
 }
@@ -271,7 +281,7 @@ async fn test_list_aliases_success() {
 "#)
                         .create_async()
                         .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/list"), &server.url());
+    let (bot, _) = mock_bot(message_text("/list"), &server.url());
     bot.dispatch_and_check_last_text(
         "Aliases:
  - aaa@mock_domain
@@ -298,7 +308,7 @@ async fn test_list_aliases_error_response() {
 "#)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/list"), &server.url());
+    let (bot, _) = mock_bot(message_text("/list"), &server.url());
     bot.dispatch_and_check_last_text("Failed to list aliases: Error from server: Not Found").await;
     mock.assert();
 }
@@ -311,7 +321,7 @@ async fn test_list_aliases_unexpected_response() {
                      .with_body(r#"trash"#)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/list"), &server.url());
+    let (bot, _) = mock_bot(message_text("/list"), &server.url());
     bot.dispatch_and_check_last_text(
         "Failed to list aliases: Failed to parse response
 
@@ -335,9 +345,9 @@ async fn test_remove_alias_success() {
                         .create_async()
                         .await;
 
-    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    let (bot, _) = mock_bot(message_text("/remove"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
-    bot.update(MockMessageText::new().text("alias-to-remove"));
+    bot.update(message_text("alias-to-remove"));
     bot.dispatch_and_check_last_text("Alias alias-to-remove@mock_domain removed successfully.").await;
     mock.assert(); // API request was sent
 }
@@ -351,9 +361,9 @@ async fn test_remove_alias_empty_response() {
                         .create_async()
                         .await;
 
-    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    let (bot, _) = mock_bot(message_text("/remove"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
-    bot.update(MockMessageText::new().text("different-alias")); // different from the one in mock path
+    bot.update(message_text("different-alias")); // different from the one in mock path
     bot.dispatch_and_check_last_text(
         "Failed to remove alias: Failed to parse response
 
@@ -376,9 +386,9 @@ async fn test_remove_alias_unexpected_response() {
                         .create_async()
                         .await;
 
-    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    let (bot, _) = mock_bot(message_text("/remove"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
-    bot.update(MockMessageText::new().text("alias-to-remove"));
+    bot.update(message_text("alias-to-remove"));
     bot.dispatch_and_check_last_text(
         "Failed to remove alias: Failed to parse response
 
@@ -407,9 +417,9 @@ async fn test_remove_alias_non_existing() {
                         .create_async()
                         .await;
 
-    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    let (bot, _) = mock_bot(message_text("/remove"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
-    bot.update(MockMessageText::new().text("non-existing-alias"));
+    bot.update(message_text("non-existing-alias"));
     bot.dispatch_and_check_last_text("Failed to remove alias: Not Found").await;
     mock.assert();
 }
@@ -420,11 +430,11 @@ async fn test_remove_alias_invalid_alias() {
     let mock = server.mock("DELETE", mockito::Matcher::Any)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    let (bot, _) = mock_bot(message_text("/remove"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
-    bot.update(MockMessageText::new().text("@invalid"));
+    bot.update(message_text("@invalid"));
     bot.dispatch_and_check_last_text("Invalid alias name '@invalid', aborting.").await;
-    bot.update(MockMessageText::new().text("@invalid")); // check that dialog is reset
+    bot.update(message_text("@invalid")); // check that dialog is reset
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
 }
@@ -435,11 +445,50 @@ async fn test_remove_alias_nonword_alias() {
     let mock = server.mock("DELETE", mockito::Matcher::Any)
                      .create_async()
                      .await;
-    let (bot, _) = mock_bot(MockMessageText::new().text("/remove"), &server.url());
+    let (bot, _) = mock_bot(message_text("/remove"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
-    bot.update(MockMessageSticker::new().emoji("💩"));
+    bot.update(message_sticker("💩"));
     bot.dispatch_and_check_last_text("Got a non-text, aborting.").await;
-    bot.update(MockMessageText::new().text("@invalid")); // check that dialog is reset
+    bot.update(message_text("@invalid")); // check that dialog is reset
     bot.dispatch_and_check_last_text("Unable to handle the message. Type /help to see the usage.").await;
     assert!(!mock.matched());
+}
+
+#[tokio::test]
+async fn test_messages_from_unknown_are_blocked() {
+    let anon_message = |text: &str| MockMessageText { from: None, text: text.to_string(), ..MockMessageText::new()};
+    let (bot, _) = mock_bot(anon_message("/help"), "localhost");
+    bot.dispatch_and_check_last_text("Unauthorized user unknown, please contact the administrator.").await;
+    bot.update(anon_message("/list"));
+    bot.dispatch_and_check_last_text("Unauthorized user unknown, please contact the administrator.").await;
+    bot.update(anon_message("/add"));
+    bot.dispatch_and_check_last_text("Unauthorized user unknown, please contact the administrator.").await;
+    bot.update(anon_message("/remove"));
+    bot.dispatch_and_check_last_text("Unauthorized user unknown, please contact the administrator.").await;
+    bot.update(anon_message("/cancel"));
+    bot.dispatch_and_check_last_text("Unauthorized user unknown, please contact the administrator.").await;
+    bot.update(anon_message("non-command"));
+    bot.dispatch_and_check_last_text("Unauthorized user unknown, please contact the administrator.").await;
+    bot.update(message_text("/cancel")); // Check that authorized user is not blocked
+    bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
+}
+
+#[tokio::test]
+async fn test_messages_from_unauthorized_user_are_blocked() {
+    // different id from authorized_user_id in the mock_config
+    let mock_user = MockUser::new().id(4321).build();
+    let (bot, _) = mock_bot(MockMessageText::new().from(mock_user.clone()).text("/help"), "localhost");
+    bot.dispatch_and_check_last_text("Unauthorized user 4321, please contact the administrator.").await;
+    bot.update(MockMessageText::new().from(mock_user.clone()).text("/list"));
+    bot.dispatch_and_check_last_text("Unauthorized user 4321, please contact the administrator.").await;
+    bot.update(MockMessageText::new().from(mock_user.clone()).text("/add"));
+    bot.dispatch_and_check_last_text("Unauthorized user 4321, please contact the administrator.").await;
+    bot.update(MockMessageText::new().from(mock_user.clone()).text("/remove"));
+    bot.dispatch_and_check_last_text("Unauthorized user 4321, please contact the administrator.").await;
+    bot.update(MockMessageText::new().from(mock_user.clone()).text("/cancel"));
+    bot.dispatch_and_check_last_text("Unauthorized user 4321, please contact the administrator.").await;
+    bot.update(MockMessageText::new().from(mock_user.clone()).text("non-command"));
+    bot.dispatch_and_check_last_text("Unauthorized user 4321, please contact the administrator.").await;
+    bot.update(message_text("/cancel")); // Check that authorized user is not blocked
+    bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
 }

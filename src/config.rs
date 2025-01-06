@@ -6,6 +6,8 @@ pub struct Config {
     // Telegram bot API access
     pub teloxide_token: String,
 
+    pub authorized_user_id: u64,
+
     // kMail API access
     pub kmail_api: crate::kmail_api::Config,
 
