@@ -2,6 +2,7 @@
              (guix git-download)
              (guix download)
              (guix build-system cargo)
+             (gnu packages certs) ; for nss-certs
              (gnu packages compression) ; for zstd
              (gnu packages rust)
              (gnu packages crates-database)
@@ -1160,7 +1161,7 @@ systems are supported.")
         (base32 "086cbwmw3qczs3kml5i783zcl1rqpfxzxkmw5lvrx2j2992dgq03"))))
     (build-system cargo-build-system)
     ; TODO: should any of them be "native-inputs"?
-    (inputs (list pkg-config openssl zstd (list zstd "lib")))
+    (inputs (list pkg-config openssl zstd (list zstd "lib") nss-certs))
     (arguments
      `(#:cargo-inputs (("rust-anyhow" ,rust-anyhow-1)
                        ("rust-confy" ,rust-confy-0.6)
@@ -1174,7 +1175,17 @@ systems are supported.")
                        ("rust-teloxide" ,rust-teloxide-0.13)
                        ("rust-tokio" ,rust-tokio-1))
        #:cargo-development-inputs (("rust-mockito" ,rust-mockito-1)
-                                   ("rust-teloxide-tests" ,rust-teloxide-tests-0.2))))
+                                   ("rust-teloxide-tests" ,rust-teloxide-tests-0.2))
+       #:phases
+       (modify-phases %standard-phases
+                       (add-after 'install 'wrap-binary
+                                  (lambda* (#:key outputs inputs #:allow-other-keys)
+                                    (let* ((out (assoc-ref outputs "out"))
+                                           (bin (string-append out "/bin/kmail-alias-bot"))
+                                           (cert-dir (string-append (assoc-ref inputs "nss-certs")
+                                                                    "/etc/ssl/certs")))
+                                      (wrap-program bin
+                                                    `("SSL_CERT_DIR" = ,(list cert-dir)))))))))
     (home-page "https://github.com/necto/kmail-alias-bot")
     (synopsis
      "Telegram bot for easy alias management on Infomaniak kMail service.")
