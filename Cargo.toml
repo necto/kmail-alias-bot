@@ -7,6 +7,9 @@ description = "A Telegram bot for easy alias management on Infomaniak kMail serv
 readme = "Readme.org"
 homepage = "https://github.com/necto/kmail-alias-bot"
 repository = "https://github.com/necto/kmail-alias-bot"
+ignore = [
+  "raw-package.scm"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
