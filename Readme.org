@@ -19,8 +19,8 @@
   # in kmail-alias-bot
   docker load < /gnu/store/vl2krv8pkm4z10nhl9fp3wm1afjdkpdd-rust-kmail-alias-bot-docker-pack.tar.gz
   docker login
-  docker tag rust-kmail-alias-bot azaostro/alias-bot:0.1.1
-  docker push azaostro/kmail-alias-bot:0.1.1
+  docker tag rust-kmail-alias-bot azaostro/alias-bot:latest
+  docker push azaostro/kmail-alias-bot:latest
   docker-compose up
   #+end_src
 

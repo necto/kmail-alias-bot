@@ -1,0 +1,10 @@
+services:
+  kmail-alias-bot:
+    image: azaostro/kmail-alias-bot:latest
+    container_name: kmail-alias-bot
+    volumes:
+      - type: bind
+        source: /share/local/kmail-alias-bot/kmail-alias.toml
+        target: /kmail-alias.toml
+        read_only: true
+    restart: unless-stopped
