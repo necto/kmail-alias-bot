@@ -11,8 +11,18 @@
     of documenting the alias itself
 - [X] ~/list~ command to list all the aliases
 - [X] ~/remove~ command to remove an alias
-- [ ] A docker container and a sample docker-compose file to conveniently deploy
+- [X] A docker container and a sample docker-compose file to conveniently deploy
   the bot on a NAS container station.
+  #+begin_src
+  # in guix on the rust-team branch (986245daca2fb50d58cf0f2b9273f0d670d38af2)
+  ./pre-inst-env guix pack --format=docker --file=../kmail-alias-bot/raw-package.scm --entry-point=bin/kmail-alias-bot
+  # in kmail-alias-bot
+  docker load < /gnu/store/vl2krv8pkm4z10nhl9fp3wm1afjdkpdd-rust-kmail-alias-bot-docker-pack.tar.gz
+  docker login
+  docker tag rust-kmail-alias-bot azaostro/alias-bot:0.1.1
+  docker push azaostro/kmail-alias-bot:0.1.1
+  docker-compose up
+  #+end_src
 
 ** Running
 #+begin_src

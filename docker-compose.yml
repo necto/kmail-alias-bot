@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  kmail-alias-bot:
+    image: azaostro/kmail-alias-bot:0.1.1
+    container_name: kmail-alias-bot
+    volumes:
+      - type: bind
+        source: ./kmail-alias.toml
+        target: /kmail-alias.toml
+        read_only: true
