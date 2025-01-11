@@ -1,29 +1,43 @@
-* A simple Telegram bot to facilitate creation of e-mail aliases in Infomaniak's kMail
+* kMail-alias Telegram Bot
+
+A simple Telegram bot that facilitates management of e-mail aliases in Infomaniak's kMail on your proper domain.
 
 ** Features
-- [X] Get the kMail and the Telegram API tokens, domain name, mailbox id, and account id from a config file
-- [X] Get the owner TG handle from a config file, and communicate only with the owner.
-- [X] ~/add~ command to create an alias
+- Communicates with a single pre-configured telegram user based on their telegram user ID.
+  You don't want random strangers to manage your e-mail aliases, so set the id to your user.
+  You can get your user id from a user-id bot, or just by running this bot with a wrong user-id configured
+  and sending it a message. It will respond to you with your user id. For example:
+  #+begin_quote
+  Unauthorized user 123456789, please contact the administrator
+  #+end_quote
+  then add "123456789" as the ~authorized_user_id~ in your kmail-alias.toml config.
+- ~/add~ command to create an alias.
   - Accepts alias name (before '@' part) description (purpose)
-  - [X] Invokes the POST API to add the alias
-  - [X] In addition to creating the alias, also sends a test e-mail to the newly
-    created address, with the provided description. this surves a double purpose
-    of documenting the alias itself
-- [X] ~/list~ command to list all the aliases
-- [X] ~/remove~ command to remove an alias
-- [X] A docker container and a sample docker-compose file to conveniently deploy
-  the bot on a NAS container station.
+  - In addition to creating the alias, also sends a test e-mail to the newly created address, with the provided description. This serves a double purpose of documenting the alias itself
+- ~/list~ command to list all the aliases
+- ~/remove~ command to remove an alias
+- You can deploy this application using docker. See [[file:example-docker-compose-qnap-container-station.yaml][example NAS compose file]] for inspiration.
+
+** Installation
+https://hub.docker.com/r/azaostro/kmail-alias-bot
   #+begin_src
   guix pack --format=docker --file=raw-package.scm --entry-point=bin/kmail-alias-bot
   docker load < /gnu/store/73f79cm7i6mkfn9z2jpc49k88xv7ni4c-rust-kmail-alias-bot-docker-pack.tar.gz
   docker login
   docker tag rust-kmail-alias-bot azaostro/alias-bot:latest
   docker push azaostro/kmail-alias-bot:latest
-  docker-compose up
   #+end_src
 
+** Configuration
+Copy [[file:test-config.toml][test configuration file]] as ./kmail-alias.toml and adjust the configuration values.
 ** Running
 #+begin_src
 guix shell rust rust-cargo openssl pkg-config
 RUST_LOG=debug cargo run
 #+end_src
+
+or
+
+  #+begin_src
+  docker-compose up
+  #+end_src
