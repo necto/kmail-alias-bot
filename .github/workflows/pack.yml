@@ -31,6 +31,8 @@ jobs:
       - name: Pack (Docker)
         run: |
           guix pack --format=docker --file=guix-package.scm --entry-point=bin/kmail-alias-bot --root=docker-image.tar.gz
+      - name: Load to Docker
+        run: |
           docker load < docker-image.tar.gz
           docker tag rust-kmail-alias-bot azaostro/kmail-alias-bot:unstable
       - name: Log in to Docker Hub
