@@ -1,5 +1,7 @@
 name: Pack Docker Image
-on: [push]
+on:
+  push:
+    branch: [main]
 jobs:
   build:
     name: Build and Pack Docker Image
