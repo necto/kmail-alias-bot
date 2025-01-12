@@ -1189,7 +1189,8 @@ systems are supported.")
                                            (cert-dir (string-append (assoc-ref inputs "nss-certs")
                                                                     "/etc/ssl/certs")))
                                       (wrap-program bin
-                                                    `("SSL_CERT_DIR" = ,(list cert-dir)))))))))
+                                                    `("SSL_CERT_DIR" = ,(list cert-dir))
+                                                    '("RUST_LOG" = ("debug")))))))))
     (home-page "https://github.com/necto/kmail-alias-bot")
     (synopsis
      "Telegram bot for easy alias management on Infomaniak kMail service.")
