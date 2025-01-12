@@ -1,3 +1,8 @@
+# An example Docker-compose file to deploy kmail-alias-bot
+# in the Containre Station on QNAP NAS.
+# It assumes that you upload the configuration file
+# to /share/local/kmail-alias-bot/kmail-alias.toml
+# which might look like /local/kmail-alias-bot/kmail-alias.toml in the UI.
 services:
   kmail-alias-bot:
     image: azaostro/kmail-alias-bot:latest

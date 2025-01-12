@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   kmail-alias-bot:
-    image: azaostro/kmail-alias-bot:0.1.1
+    image: azaostro/kmail-alias-bot:latest
     container_name: kmail-alias-bot
     volumes:
       - type: bind

@@ -1,17 +1,49 @@
-# Telegram token from BotFather
+# This file is used by the crate tests.
+# You can use it as a starting point for your own configuration file kmail-alias.toml
+# All the fialds are mandatory, and you need to change all of them to the values that
+# correspond to your deployment.
+
+# Telegram token from @BotFather
 teloxide_token = "123teloxide_api_token"
-domain_name = "mock_domain" # domain for e-mail aliasing
+
+# Your custom domain name.
+# You will have aliases in the form of alias-name@your-domain.com
+# for or with the value below: alias-name@mock_domain
+domain_name = "mock_domain"
+
+# The Telegram user ID that is authorized to communicate with this bot.
+# The bot accepts only one master.
+# To get your id you can launch the bot with the wrong value,
+# once you message the bot it will reply you with your Telegram ID.
 authorized_user_id = 1234
 
+# Infomaniak kMail API access token.
+# It must have at least the "mail" scope.
 [kmail_api]
 token = "123mock_kmail_token"
 mail_id = "mock_mail_hosting_id"
+# This is the name of your actual kMail account,
+# i.e., the name of your primary e-mail on the domain "domain_name"
+# Example: "john-smith" for "john-smith@domain.com"
 mailbox_name = "mock_name"
 
+# SMTP access configuration for sending probe e-mails
+# to the newly created aliases.
 [probe_mail]
+# This can be an "App password" in your gmail account
 sender_password = "mock_sender_password"
+# This is your real e-mail that the bot will use, e.g. john-smith@gmail.com
 sender_email = "mock_sender_email"
+# This is any name that you want to appear as the sender name in your mailbox
+# For example, "Alias Bot"
 sender_name = "mock_sender_name"
+# This is the SMTP host the bot will use to deliver the probe emails.
+# For example, smtp.gmail.com
 sender_host = "mock_sender_host"
+# This is the port name used by the above host,
+# For example, 587
 sender_port = 1234
+# This is the name the bot will use as the receiver of the probe email.
+# For example if you set it to "John Smith" and add an alias "shops"
+# It will send an email to "John Smith <shops@your-domain.com>"
 receiver_name = "mock_receiver_name"

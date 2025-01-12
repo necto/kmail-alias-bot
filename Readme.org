@@ -2,6 +2,8 @@
 
 A simple Telegram bot that facilitates management of e-mail aliases in Infomaniak's kMail on your proper domain.
 
+kMail supports up to 50 aliases in the free plan (kSuite Standard) for a single-user e-mail on your own custom domain.
+
 ** Features
 - Communicates with a single pre-configured telegram user based on their telegram user ID.
   You don't want random strangers to manage your e-mail aliases, so set the id to your user.
@@ -18,26 +20,70 @@ A simple Telegram bot that facilitates management of e-mail aliases in Infomania
 - ~/remove~ command to remove an alias
 - You can deploy this application using docker. See [[file:example-docker-compose-qnap-container-station.yaml][example NAS compose file]] for inspiration.
 
-** Installation
-https://hub.docker.com/r/azaostro/kmail-alias-bot
-  #+begin_src
-  guix pack --format=docker --file=raw-package.scm --entry-point=bin/kmail-alias-bot
-  docker load < /gnu/store/73f79cm7i6mkfn9z2jpc49k88xv7ni4c-rust-kmail-alias-bot-docker-pack.tar.gz
-  docker login
-  docker tag rust-kmail-alias-bot azaostro/alias-bot:latest
-  docker push azaostro/kmail-alias-bot:latest
-  #+end_src
+** Prerequisites
+Given that it is a Telegram bot, it requires a Telegram token to operate.
+You can get the token by creating a new bot using the @BotFather Telegram bot.
 
-** Configuration
-Copy [[file:test-config.toml][test configuration file]] as ./kmail-alias.toml and adjust the configuration values.
-** Running
+An Infomaniak API access token.
+You need access to the kMail aliases feature.
+I use it with my own custom domain.
+The free version includes up to 50 aliases, that I can add and remove at a whim.
+Follow their [[https://faq.infomaniak.com/2582][official documentation]]. You need the ~mail~ scope.
+
+SMTP-client credentials.
+You need to open access to one of your existing e-mail accounts to enable the bot send probe e-mails on your behalf to the newly created alias.
+I used my gmail account. See "Option 2: Send email with the Gmail SMTP server" in [[https://support.google.com/a/answer/176600?hl=en][this official manual]].
+You'll most likely want to crate an "App password" (in Account settings / Security / 2-Step Verification).
+
+** Installation and running
+You have multiple options to use this application.
+In any case, you'll need to run it on a host that has access to the internet.
+It can run perfectly fine behind a NAS, you don't need to expose anything, as it only accesses public APIs.
+For it to be useful, you'll need to run it continuously, so something like a cloud instance or a NAS would be ideal.
+*** Docker
+Assuming your configuration file is "./kmail-alias.toml", you can run it directly with
+#+begin_src bash
+docker run -it --rm --mount type=bind,src=./kmail-alias.toml,dst=/kmail-alias.toml,ro azaostro/kmail-alias-bot
+#+end_src
+Or as a long-running Docker Compose service, using [[file:docker-compose.yml][docker-compose.yml]] :
+#+begin_src
+docker compose up
+#+end_src
+The above commands use the published [[https://hub.docker.com/r/azaostro/kmail-alias-bot][container image from the Docker Hub]].
+*** Cargo
+#+begin_src bash
+cargo install kmail-alias-bot
+#+end_src
+Will install it into the default location where Cargo keeps executables, e.g. "~/.cargo/bin".
+Once it is in your ~$PATH~, and you have "kmail-alias.toml" file in your local directory, you can run it simply with
+#+begin_src
+kmail-alias-bot
+#+end_src
+*** Guix
+You can use the [[file:guix-package.scm][prepared package definition]] with all the dependencies not defined in the Guix master channel:
+#+begin_src bash
+guix shell -f guix-package.scm -- kmail-alias-bot
+#+end_src
+*** Git clone
+Finally, you can run the application directly from the repository clone,
+make sure you have OpenSSL and PKG-config installed, for example, with guix:
 #+begin_src
 guix shell rust rust-cargo openssl pkg-config
 RUST_LOG=debug cargo run
 #+end_src
 
-or
-
-  #+begin_src
-  docker-compose up
-  #+end_src
+** Configuration
+Copy [[file:test-config.toml][test configuration file]] as ./kmail-alias.toml and follow the comments to adjust the configuration values.
+** Building the image
+I use [[https://guix.gnu.org/manual/en/html_node/Invoking-guix-pack.html][Guix pack]] to prepare a docker image that I then deploy on my QNAP NAS Container Station:
+#+begin_src bash
+guix pack --format=docker --file=guix-package.scm --entry-point=bin/kmail-alias-bot
+# This will produce an image tarball in the Guix store, copy it in the next command
+docker load < /gnu/store/73f79cm7i6mkfn9z2jpc49k88xv7ni4c-rust-kmail-alias-bot-docker-pack.tar.gz
+docker tag rust-kmail-alias-bot azaostro/alias-bot:latest
+#+end_src
+Finally, to push it to Docker Hub:
+#+begin_src bash
+docker login
+docker push azaostro/kmail-alias-bot:latest
+#+end_src
