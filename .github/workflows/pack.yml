@@ -34,18 +34,18 @@ jobs:
           docker load < docker-image.tar.gz
           docker tag rust-kmail-alias-bot azaostro/kmail-alias-bot:unstable
       - name: Log in to Docker Hub
-        uses: docker/login-action
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action
+        uses: docker/metadata-action@v5
         with:
           images: azaostro/kmail-alias-bot
       - name: Inspect
         run: |
-          docker image inspect kmail-alias-bot:unstable
+          docker image inspect azaostro/kmail-alias-bot:unstable
       - name: Push to Docker Hub
         run: |
           docker push azaostro/kmail-alias-bot:unstable
