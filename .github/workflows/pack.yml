@@ -16,10 +16,12 @@ jobs:
       # Cannot use a cache for /gnu/store, since restore fails
       - name: Install Guix
         uses: PromyLOPh/guix-install-action@v1
+        with:
+          pullAfterInstall: false
       - name: Ensure no locale warning
         run: test -z "$(guix --version 2>&1 >/dev/null)"
       - name: Build kmail-alias-bot
-        run: guix build -f guic-package.scm
+        run: guix build -f guix-package.scm
       # Create a docker image
       - name: Pack (Docker)
         run: |
