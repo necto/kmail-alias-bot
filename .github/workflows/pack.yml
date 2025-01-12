@@ -21,7 +21,10 @@ jobs:
       - name: Ensure no locale warning
         run: test -z "$(guix --version 2>&1 >/dev/null)"
       - name: Build kmail-alias-bot
-        run: guix build -f guix-package.scm
+        run: |
+          pwd
+          ls
+          guix build -f guix-package.scm
       # Create a docker image
       - name: Pack (Docker)
         run: |
