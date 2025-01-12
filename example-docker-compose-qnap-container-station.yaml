@@ -5,7 +5,7 @@
 # which might look like /local/kmail-alias-bot/kmail-alias.toml in the UI.
 services:
   kmail-alias-bot:
-    image: azaostro/kmail-alias-bot:latest
+    image: azaostro/kmail-alias-bot:unstable
     container_name: kmail-alias-bot
     volumes:
       - type: bind
