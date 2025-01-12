@@ -1,0 +1,28 @@
+name: Pack Docker Image
+on: [push]
+jobs:
+  build:
+    name: Build and Pack Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guix cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/guix
+          # use a key that (almost) never matches
+          key: guix-cache-${{ github.sha }}
+          restore-keys: |
+            guix-cache-
+      # Cannot use a cache for /gnu/store, since restore fails
+      - name: Install Guix
+        uses: PromyLOPh/guix-install-action@v1
+      - name: Ensure no locale warning
+        run: test -z "$(guix --version 2>&1 >/dev/null)"
+      - name: Build kmail-alias-bot
+        run: guix build -f guic-package.scm
+      # Create a docker image
+      - name: Pack (Docker)
+        run: |
+          guix pack --format=docker --file=guix-package.scm --entry-point=bin/kmail-alias-bot --root=docker-image.tar.gz
+          docker load < docker-image.tar.gz
+          docker tag rust-kmail-alias-bot azaostro/kmail-alias-bot:latest

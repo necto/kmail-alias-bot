@@ -77,10 +77,9 @@ Copy [[file:test-config.toml][test configuration file]] as ./kmail-alias.toml an
 ** Building the image
 I use [[https://guix.gnu.org/manual/en/html_node/Invoking-guix-pack.html][Guix pack]] to prepare a docker image that I then deploy on my QNAP NAS Container Station:
 #+begin_src bash
-guix pack --format=docker --file=guix-package.scm --entry-point=bin/kmail-alias-bot
-# This will produce an image tarball in the Guix store, copy it in the next command
-docker load < /gnu/store/73f79cm7i6mkfn9z2jpc49k88xv7ni4c-rust-kmail-alias-bot-docker-pack.tar.gz
-docker tag rust-kmail-alias-bot azaostro/alias-bot:latest
+guix pack --format=docker --file=guix-package.scm --entry-point=bin/kmail-alias-bot --root=docker-image.tar.gz
+docker load < docker-image.tar.gz
+docker tag rust-kmail-alias-bot azaostro/kmail-alias-bot:latest
 #+end_src
 Finally, to push it to Docker Hub:
 #+begin_src bash
