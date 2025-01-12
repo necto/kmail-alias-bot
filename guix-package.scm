@@ -1,7 +1,9 @@
 (use-modules (guix packages)
              (guix git-download)
              (guix download)
+             (guix gexp)
              (guix build-system cargo)
+             (guix utils)
              (gnu packages certs) ; for nss-certs
              (gnu packages compression) ; for zstd
              (gnu packages rust)
@@ -1148,17 +1150,19 @@ systems are supported.")
      "This package provides Boilerplate-free configuration management.")
     (license (list license:expat license:x11 license:asl2.0))))
 
+(define vcs-file?
+  ;; Return true if the given file is under version control.
+  (or (git-predicate (current-source-directory))
+      (const #t)))                                ;not in a Git checkout
+
 (define-public rust-kmail-alias-bot-0.1
   (package
     (name "rust-kmail-alias-bot")
     (version "0.1.1")
     (source
-     (origin
-       (method url-fetch)
-       (uri (crate-uri "kmail-alias-bot" version))
-       (file-name (string-append name "-" version ".tar.gz"))
-       (sha256
-        (base32 "086cbwmw3qczs3kml5i783zcl1rqpfxzxkmw5lvrx2j2992dgq03"))))
+     (local-file "." "rkab-checkout"
+                 #:recursive? #t
+                 #:select? vcs-file?))
     (build-system cargo-build-system)
     ; TODO: should any of them be "native-inputs"?
     (inputs (list pkg-config openssl zstd (list zstd "lib") nss-certs))
