@@ -24,6 +24,8 @@ jobs:
         run: |
           pwd
           ls
+          cd ..
+          ls
           guix build -f guix-package.scm
       # Create a docker image
       - name: Pack (Docker)
