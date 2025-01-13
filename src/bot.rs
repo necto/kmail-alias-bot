@@ -1,14 +1,8 @@
 use std::sync::Arc;
 use teloxide::{
     dispatching::{
-        dialogue,
-        dialogue::InMemStorage,
-        UpdateHandler,
-        Dispatcher,
-        DefaultKey
-    },
-    prelude::*,
-    utils::command::BotCommands,
+        dialogue::{self, InMemStorage}, DefaultKey, Dispatcher, UpdateHandler
+    }, prelude::*, types::{BotCommand, MenuButton}, utils::command::BotCommands
 };
 
 use crate::config::Config;
@@ -34,6 +28,9 @@ pub enum State {
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase")]
 enum Command {
+    /// Start the conversation,
+    /// in particualr, install the menu.
+    Start,
     /// Display this text.
     Help,
     /// Start adding a new alias.
@@ -100,6 +97,7 @@ pub fn schema(authorized_user_id: u64) -> UpdateHandler<Box<dyn std::error::Erro
     let command_handler = teloxide::filter_command::<Command, _>()
         .branch(
             case![State::Start]
+                .branch(case![Command::Start].endpoint(start))
                 .branch(case![Command::Help].endpoint(help))
                 .branch(case![Command::Add].endpoint(start_new_alias))
                 .branch(case![Command::List].endpoint(list_aliases))
@@ -123,6 +121,23 @@ async fn start_new_alias(bot: Bot, dialogue: MyDialogue, msg: Message) -> Handle
     bot.send_message(msg.chat.id, "Enter the single-word name of the alias to add").await?;
     dialogue.update(State::ReceiveNewAliasName).await?;
     Ok(())
+}
+
+async fn set_menu_button(bot: &Bot) -> HandlerResult {
+    bot.set_my_commands(
+        [BotCommand{command:"/help".into(), description: "Command help".into()},
+         BotCommand{command:"/add".into(), description: "Add a new alias".into()},
+         BotCommand{command:"/list".into(), description: "List all aliases".into()},
+         BotCommand{command:"/remove".into(), description: "Remove an alias".into()}]
+    ).await?;
+    bot.set_chat_menu_button().menu_button(MenuButton::Commands).await?;
+    println!("Menu button set");
+    Ok(())
+}
+
+async fn start(bot: Bot, msg: Message) -> HandlerResult {
+    set_menu_button(&bot).await?;
+    help(bot, msg).await
 }
 
 async fn help(bot: Bot, msg: Message) -> HandlerResult {
