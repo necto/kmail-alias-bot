@@ -283,7 +283,7 @@ async fn test_list_aliases_success() {
                         .await;
     let (bot, _) = mock_bot(message_text("/list"), &server.url());
     bot.dispatch_and_check_last_text(
-        "Aliases:
+        "3 aliases:
  - aaa@mock_domain
  - bbb@mock_domain
  - ccc@mock_domain").await;

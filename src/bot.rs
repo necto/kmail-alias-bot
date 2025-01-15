@@ -148,7 +148,7 @@ async fn help(bot: Bot, msg: Message) -> HandlerResult {
 async fn list_aliases(bot: Bot, domain: DomainName, client: Arc<KMailApi>, msg: Message) -> HandlerResult {
     match client.list_aliases().await {
         Ok(aliases) => {
-            let mut reply: String = "Aliases:".into();
+            let mut reply: String = format!("{} aliases:", aliases.len());
             for alias in aliases {
                 let full_email = domain.full_email(&alias);
                 reply = reply + &format!("\n - {full_email}");
