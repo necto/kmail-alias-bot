@@ -264,6 +264,36 @@ async fn test_add_alias_cancel_on_description() {
 }
 
 #[tokio::test]
+async fn test_add_alias_description_nontext() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("POST", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_body(r#"
+
+{
+    "result":"success",
+    "data":true
+}
+"#)
+                        .create_async()
+                        .await;
+    let (bot, probe_mail) = mock_bot(message_text("/add"), &server.url());
+    bot.dispatch_and_check_last_text("Enter the single-word name of the alias to add").await;
+    bot.update(message_text("alias"));
+    bot.dispatch_and_check_last_text("Enter the description of the alias").await;
+    bot.update(message_sticker("👍")); // Invalid response for description
+    bot.dispatch_and_check_last_text("Please, send me a text alias description.").await;
+    bot.update(message_sticker("🛌")); // Another invalid description
+    bot.dispatch_and_check_last_text("Please, send me a text alias description.").await;
+    bot.update(message_text("valid description"));
+    bot.dispatch_and_check_last_text("Probe email sent successfully.").await;
+    mock.assert(); // API request was sent
+    assert_eq!(probe_mail.lock().await.alias_email, "alias@mock_domain");
+    assert_eq!(probe_mail.lock().await.description, "valid description");
+    assert_eq!(probe_mail.lock().await.alias_name, "alias");
+}
+
+#[tokio::test]
 async fn test_list_aliases_success() {
     let mut server = Server::new_async().await;
     let mock = server.mock("GET", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")

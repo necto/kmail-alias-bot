@@ -332,7 +332,7 @@ async fn receive_alias_description(
             dialogue.exit().await?;
         }
         None => {
-            bot.send_message(msg.chat.id, "Please, send me your full name.").await?;
+            bot.send_message(msg.chat.id, "Please, send me a text alias description.").await?;
         }
     }
 
