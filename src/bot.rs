@@ -163,9 +163,6 @@ async fn list_aliases(bot: Bot, domain: DomainName, client: Arc<KMailApi>, msg: 
 }
 
 async fn start_removing_alias(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
-    // TODO: list all aliases here and let them choose
-    // Here is an example of a selection:
-    // https://github.com/teloxide/teloxide/blob/master/crates/teloxide/examples/purchase.rs
     bot.send_message(msg.chat.id, "Enter the single-word name of the alias to remove").await?;
     dialogue.update(State::ReceiveAliasNameForRemoval).await?;
     Ok(())
