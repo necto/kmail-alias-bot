@@ -156,7 +156,7 @@ async fn list_aliases(bot: Bot, domain: DomainName, client: Arc<KMailApi>, msg: 
             bot.send_message(msg.chat.id, reply).await?;
         }
         Err(e) => {
-            bot.send_message(msg.chat.id, format!("Failed to list aliases: {e:?}")).await?;
+            bot.send_message(msg.chat.id, format!("❌Failed to list aliases: {e:?}")).await?;
         }
     }
     Ok(())
@@ -169,7 +169,7 @@ async fn start_removing_alias(bot: Bot, dialogue: MyDialogue, msg: Message) -> H
 }
 
 async fn cancel(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
-    bot.send_message(msg.chat.id, "Cancelling the dialogue.").await?;
+    bot.send_message(msg.chat.id, "🚫Cancelling the dialogue.").await?;
     dialogue.exit().await?;
     Ok(())
 }
@@ -182,13 +182,13 @@ async fn unauthorized_user(bot: Bot, msg: Message) -> HandlerResult {
     log::warn!("Unauthorized user: {:?}", msg.from);
     let user_id = get_user_id(&msg);
     bot.send_message(msg.chat.id,
-                     format!("Unauthorized user {user_id}, please contact the administrator."))
+                     format!("🚫Unauthorized user {user_id}, please contact the administrator."))
        .await?;
     Ok(())
 }
 
 async fn invalid_state(bot: Bot, msg: Message) -> HandlerResult {
-    bot.send_message(msg.chat.id, "Unable to handle the message. Type /help to see the usage.")
+    bot.send_message(msg.chat.id, "🤔Unable to handle the message. Type /help to see the usage.")
        .await?;
     Ok(())
 }
@@ -209,33 +209,33 @@ async fn receive_alias_name_for_removal(
         Some(alias_name) => {
             if is_valid_alias_name(&alias_name) {
                 let full_email = domain.full_email(&alias_name);
-                bot.send_message(msg.chat.id, format!("Removing alias {full_email}")).await?;
+                bot.send_message(msg.chat.id, format!("🪓Removing alias {full_email}")).await?;
 
                 match client.remove_alias(&alias_name).await {
                     Ok(_) => {
                         bot.send_message(
                             dialogue.chat_id(),
-                            format!("Alias {full_email} removed successfully."),
+                            format!("✅Alias {full_email} removed successfully."),
                         )
                            .await?;
                     }
                     Err(e) => {
                         bot.send_message(
                             dialogue.chat_id(),
-                            format!("Failed to remove alias: {e:?}"),
+                            format!("❌Failed to remove alias: {e:?}"),
                         )
                            .await?;
                     }
                 }
             } else {
                 bot.send_message(msg.chat.id,
-                                 format!("Invalid alias name '{}', aborting.", alias_name)).await?;
+                                 format!("❌Invalid alias name '{}', aborting.", alias_name)).await?;
             }
             dialogue.exit().await?;
 
         }
         None => {
-            bot.send_message(msg.chat.id, "Got a non-text, aborting.").await?;
+            bot.send_message(msg.chat.id, "❌Got a non-text, aborting.").await?;
             dialogue.exit().await?;
         }
     }
@@ -251,12 +251,12 @@ async fn receive_new_alias_name(bot: Bot, dialogue: MyDialogue, msg: Message) ->
                 dialogue.update(State::ReceiveNewAliasDescription { alias_name }).await?;
             } else {
                 bot.send_message(msg.chat.id,
-                                 format!("Invalid alias name '{}', aborting.", alias_name)).await?;
+                                 format!("❌Invalid alias name '{}', aborting.", alias_name)).await?;
                 dialogue.exit().await?;
             }
         }
         None => {
-            bot.send_message(msg.chat.id, "Got a non-text, aborting.").await?;
+            bot.send_message(msg.chat.id, "❌Got a non-text, aborting.").await?;
             dialogue.exit().await?;
         }
     }
@@ -290,13 +290,13 @@ async fn receive_alias_description(
                 Ok(_) => {
                     bot.send_message(
                         dialogue.chat_id(),
-                        format!("Alias {alias_email} added successfully."),
+                        format!("✅Alias {alias_email} added successfully."),
                     )
                        .await?;
 
                     bot.send_message(
                         dialogue.chat_id(),
-                        format!("Sending a probe email to {alias_email}."),
+                        format!("✉️Sending a probe email to {alias_email}."),
                     )
                        .await?;
 
@@ -306,14 +306,14 @@ async fn receive_alias_description(
                         Ok(_) => {
                             bot.send_message(
                                 dialogue.chat_id(),
-                                format!("Probe email sent successfully."),
+                                format!("✅Probe email sent successfully."),
                             )
                                .await?;
                         },
                         Err(e) => {
                             bot.send_message(
                                 dialogue.chat_id(),
-                                format!("Failed to send probe email: {e}"),
+                                format!("❌Failed to send probe email: {e}"),
                             )
                                .await?;
                         }
@@ -323,7 +323,7 @@ async fn receive_alias_description(
                 Err(e) => {
                     bot.send_message(
                         dialogue.chat_id(),
-                        format!("Failed to add alias: {e:?}"),
+                        format!("❌Failed to add alias: {e:?}"),
                     )
                        .await?;
                 }
@@ -332,7 +332,7 @@ async fn receive_alias_description(
             dialogue.exit().await?;
         }
         None => {
-            bot.send_message(msg.chat.id, "Please, send me a text alias description.").await?;
+            bot.send_message(msg.chat.id,"⚠️Please, send me a text alias description.").await?;
         }
     }
 
