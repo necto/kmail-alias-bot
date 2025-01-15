@@ -165,10 +165,11 @@ async fn test_add_alias_no_or_empty_response() {
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
     bot.update(message_text("test description"));
     bot.dispatch_and_check_last_text(
-        "Failed to add alias: Failed to parse add-alias response
+        "Failed to add alias: Add-alias request failed
 
 Caused by:
-    0: error decoding response body
+    0: Failed to parse ''
+       Response code 501
     1: EOF while parsing a value at line 1 column 0").await;
 }
 
@@ -197,7 +198,12 @@ async fn test_add_alias_error_response() {
     bot.dispatch_and_check_last_text("Enter the description of the alias").await;
     bot.update(message_text("test description"));
     bot.dispatch_and_check_last_text(
-        "Failed to add alias: Error from server: Unprocessable Entity").await;
+        "Failed to add alias: Add-alias request failed
+
+Caused by:
+    Server:
+    Code 200
+    Description 'Unprocessable Entity'").await;
     mock.assert();
 }
 
@@ -325,6 +331,7 @@ async fn test_list_aliases_error_response() {
     let mut server = Server::new_async().await;
     let mock = server.mock("GET", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
                      .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_status(400)
                      .with_body(r#"
 {
     "result":"error",
@@ -339,7 +346,13 @@ async fn test_list_aliases_error_response() {
                      .create_async()
                      .await;
     let (bot, _) = mock_bot(message_text("/list"), &server.url());
-    bot.dispatch_and_check_last_text("Failed to list aliases: Error from server: Not Found").await;
+    bot.dispatch_and_check_last_text(
+        "Failed to list aliases: List-aliases request failed.
+
+Caused by:
+    Server:
+    Code 400
+    Description 'Not Found'").await;
     mock.assert();
 }
 
@@ -353,10 +366,11 @@ async fn test_list_aliases_unexpected_response() {
                      .await;
     let (bot, _) = mock_bot(message_text("/list"), &server.url());
     bot.dispatch_and_check_last_text(
-        "Failed to list aliases: Failed to parse response
+        "Failed to list aliases: List-aliases request failed.
 
 Caused by:
-    0: error decoding response body
+    0: Failed to parse 'trash'
+       Response code 200
     1: expected ident at line 1 column 3").await;
     mock.assert();
 }
@@ -387,6 +401,7 @@ async fn test_remove_alias_empty_response() {
     let mut server = Server::new_async().await;
     let mock = server.mock("DELETE", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases/alias-to-remove")
                      .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_status(400)
                      .with_body(r#""#)
                         .create_async()
                         .await;
@@ -395,10 +410,11 @@ async fn test_remove_alias_empty_response() {
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
     bot.update(message_text("different-alias")); // different from the one in mock path
     bot.dispatch_and_check_last_text(
-        "Failed to remove alias: Failed to parse response
+        "Failed to remove alias: Remove-alias requiest failed
 
 Caused by:
-    0: error decoding response body
+    0: Failed to parse ''
+       Response code 501
     1: EOF while parsing a value at line 1 column 0").await;
     assert!(!mock.matched());
 }
@@ -420,10 +436,15 @@ async fn test_remove_alias_unexpected_response() {
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
     bot.update(message_text("alias-to-remove"));
     bot.dispatch_and_check_last_text(
-        "Failed to remove alias: Failed to parse response
+        "Failed to remove alias: Remove-alias requiest failed
 
 Caused by:
-    0: error decoding response body
+    0: Failed to parse '
+       {
+           \"result\":\"success\",
+           \"data\":\"nonsense\"
+       }'
+       Response code 200
     1: invalid type: string \"nonsense\", expected a boolean at line 4 column 21").await;
     mock.assert();
 }
@@ -433,6 +454,7 @@ async fn test_remove_alias_non_existing() {
     let mut server = Server::new_async().await;
     let mock = server.mock("DELETE", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases/non-existing-alias")
                      .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_status(400)
                      .with_body(r#"
 {
     "result":"error",
@@ -450,7 +472,13 @@ async fn test_remove_alias_non_existing() {
     let (bot, _) = mock_bot(message_text("/remove"), &server.url());
     bot.dispatch_and_check_last_text("Enter the single-word name of the alias to remove").await;
     bot.update(message_text("non-existing-alias"));
-    bot.dispatch_and_check_last_text("Failed to remove alias: Not Found").await;
+    bot.dispatch_and_check_last_text(
+        "Failed to remove alias: Remove-alias requiest failed
+
+Caused by:
+    Server:
+    Code 400
+    Description 'Not Found'").await;
     mock.assert();
 }
 
@@ -522,3 +550,5 @@ async fn test_messages_from_unauthorized_user_are_blocked() {
     bot.update(message_text("/cancel")); // Check that authorized user is not blocked
     bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
 }
+
+// TODO: test response with "success" but also "error" set.

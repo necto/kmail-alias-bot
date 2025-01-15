@@ -1,6 +1,6 @@
-use reqwest;
+use reqwest::{self, RequestBuilder};
 use anyhow::Context;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -22,11 +22,15 @@ struct ListAliasesData {
     aliases: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct ErrorResponse {
     code: String,
     description: String,
     errors: Option<serde_json::Value>,
+}
+
+trait KMailAPIResponse: for<'a> Deserialize<'a> + core::fmt::Debug {
+    fn get_error(&self) -> Option<ErrorResponse>;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -34,6 +38,12 @@ struct ListAliasesResponse {
     result: String,
     data: Option<ListAliasesData>,
     error: Option<ErrorResponse>,
+}
+
+impl KMailAPIResponse for ListAliasesResponse {
+    fn get_error(&self) -> Option<ErrorResponse> {
+        self.error.clone()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,6 +56,37 @@ struct ManipulateAliasResult {
     result: String,
     data: Option<bool>,
     error: Option<ErrorResponse>,
+}
+
+impl KMailAPIResponse for ManipulateAliasResult {
+    fn get_error(&self) -> Option<ErrorResponse> {
+        self.error.clone()
+    }
+}
+
+async fn send_and_parse<T>(req: RequestBuilder) -> anyhow::Result<T>
+where T: KMailAPIResponse {
+    let resp = req.send().await.context("Failed to send request")?;
+    let code = resp.status().as_u16();
+
+    // Read the raw response text
+    let raw_text = resp.text().await.context("Extracting text")?;
+
+    // // Try to parse the JSON
+    // let json_result: Result<Value, _> = serde_json::from_str(&raw_text);
+
+    let resp = serde_json::from_str::<T>(&raw_text)
+        .context(format!("Failed to parse '{}'\nResponse code {}", raw_text, code))?;
+
+    // let resp = resp.json::<T>()
+    //     .await.context("Failed to parse response")?;
+    log::debug!("Response: {:?}", resp);
+    if let Some(err) = resp.get_error() {
+        anyhow::bail!("Server:\nCode {}\nDescription '{}'",
+                      code,
+                      err.description)
+    }
+    Ok(resp)
 }
 
 impl KMailApi {
@@ -65,17 +106,10 @@ impl KMailApi {
         let mail_id = &self.config.mail_id;
         let mailbox_name = &self.config.mailbox_name;
         let endpoint_url = &self.endpoint_url;
-        let resp = self.client
-                       .get(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
-                       .header(reqwest::header::AUTHORIZATION, self.auth_header())
-                       .send()
-                       .await.context("Failed to send request")?
-                       .json::<ListAliasesResponse>()
-            .await.context("Failed to parse response")?;
-        log::info!("Response: {:?}", resp);
-        if resp.result != "success" {
-            anyhow::bail!("Error from server: {}", resp.error.unwrap().description)
-        }
+        let request = self.client
+                          .get(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
+                          .header(reqwest::header::AUTHORIZATION, self.auth_header());
+        let resp = send_and_parse::<ListAliasesResponse>(request).await.context("List-aliases request failed.")?;
         Ok(resp.data.unwrap().aliases)
     }
 
@@ -85,21 +119,12 @@ impl KMailApi {
         let mail_id = &self.config.mail_id;
         let mailbox_name = &self.config.mailbox_name;
         let endpoint_url = &self.endpoint_url;
-        let resp = self.client
+        let request = self.client
                        .post(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases"))
                        .json(&AddAlias { alias: alias.to_owned() })
-                       .header(reqwest::header::AUTHORIZATION, self.auth_header())
-                       .send()
-                       .await
-                       .context("Failed to send add-alias request")?
-                       .json::<ManipulateAliasResult>()
-            .await.context("Failed to parse add-alias response")?;
-        log::info!("Response: {:?}", resp);
-        if resp.result == "success" {
-            Ok(())
-        } else {
-            anyhow::bail!("Error from server: {}", resp.error.unwrap().description)
-        }
+                       .header(reqwest::header::AUTHORIZATION, self.auth_header());
+        send_and_parse::<ManipulateAliasResult>(request).await.context("Add-alias request failed")?;
+        Ok(())
     }
 
     pub async fn remove_alias(&self, alias: &str) -> anyhow::Result<()> {
@@ -108,19 +133,11 @@ impl KMailApi {
         let mail_id = &self.config.mail_id;
         let mailbox_name = &self.config.mailbox_name;
         let endpoint_url = &self.endpoint_url;
-        let resp = self.client
+        let request = self.client
                        .delete(format!("{endpoint_url}/1/mail_hostings/{mail_id}/mailboxes/{mailbox_name}/aliases/{alias}"))
-                       .header(reqwest::header::AUTHORIZATION, self.auth_header())
-                       .send()
-                       .await.context("Failed to send request")?
-                       .json::<ManipulateAliasResult>()
-            .await.context("Failed to parse response")?;
-        log::info!("Response: {:?}", resp);
-        if resp.result == "success" {
-            Ok(())
-        } else {
-            anyhow::bail!(resp.error.unwrap().description)
-        }
+                       .header(reqwest::header::AUTHORIZATION, self.auth_header());
+        send_and_parse::<ManipulateAliasResult>(request).await.context("Remove-alias requiest failed")?;
+        Ok(())
     }
 }
 
