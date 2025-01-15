@@ -551,4 +551,68 @@ async fn test_messages_from_unauthorized_user_are_blocked() {
     bot.dispatch_and_check_last_text("Cancelling the dialogue.").await;
 }
 
-// TODO: test response with "success" but also "error" set.
+#[tokio::test]
+async fn test_list_aliases_inconsistent_response_error_and_data() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("GET", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_status(400)
+                     .with_body(r#"
+{
+    "result":"success",
+    "error":{
+        "code":"unprocessable_entity",
+        "description":"Unprocessable Entity",
+        "errors":[
+        ]
+    },
+    "data":{
+        "enable_alias":1,
+        "aliases":[
+            "aaa", "bbb", "ccc"
+        ]
+    }
+}
+"#)
+                        .create_async()
+                        .await;
+    let (bot, _) = mock_bot(message_text("/list"), &server.url());
+    bot.dispatch_and_check_last_text(
+        "Failed to list aliases: List-aliases request failed.
+
+Caused by:
+    Server:
+    Code 400
+    Description 'Unprocessable Entity'").await;
+    mock.assert();
+}
+
+#[tokio::test]
+async fn test_list_aliases_inconsistent_response_error_and_success() {
+    let mut server = Server::new_async().await;
+    let mock = server.mock("GET", "/1/mail_hostings/mock_mail_hosting_id/mailboxes/mock_name/aliases")
+                     .match_header(reqwest::header::AUTHORIZATION, "Bearer 123mock_kmail_token")
+                     .with_status(500)
+                     .with_body(r#"
+{
+    "result":"success",
+    "error":{
+        "code":"unprocessable_entity",
+        "description":"Unprocessable Entity",
+        "errors":[
+        ]
+    }
+}
+"#)
+                        .create_async()
+                        .await;
+    let (bot, _) = mock_bot(message_text("/list"), &server.url());
+    bot.dispatch_and_check_last_text(
+        "Failed to list aliases: List-aliases request failed.
+
+Caused by:
+    Server:
+    Code 500
+    Description 'Unprocessable Entity'").await;
+    mock.assert();
+}
