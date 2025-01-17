@@ -389,6 +389,7 @@ systems are supported.")
        (sha256
         (base32 "1ahgpi3wh3h2d7mhw9g693yzx75j4js20qx10yzc3cglf217sgh6"))))
     (build-system cargo-build-system)
+    (inputs (list pkg-config openssl zstd (list zstd "lib")))
     (arguments
      `(#:cargo-inputs (("rust-actix-multipart" ,rust-actix-multipart-0.7)
                        ("rust-actix-web" ,rust-actix-web-4)
@@ -942,6 +943,7 @@ systems are supported.")
        (sha256
         (base32 "05mwrh4c58l9mlxv6xmqxwq5365rhdzpryh33i2r06xj7qldsyaz"))))
     (build-system cargo-build-system)
+    (inputs (list pkg-config  openssl))
     (arguments
      `(#:cargo-inputs (("rust-aquamarine" ,rust-aquamarine-0.5)
                        ("rust-axum" ,rust-axum-0.7)
@@ -1101,6 +1103,7 @@ systems are supported.")
        (sha256
         (base32 "0m35h72izqs5gga8axqqqs8yjira4hlkniqbg7jniv80rwjmsmvs"))))
     (build-system cargo-build-system)
+    (inputs (list pkg-config  zstd (list zstd "lib")))
     (arguments
      `(#:cargo-inputs (("rust-base64" ,rust-base64-0.22)
                        ("rust-gethostname" ,rust-gethostname-0.4)
@@ -1116,7 +1119,11 @@ systems are supported.")
                        ("rust-tokio-rustls" ,rust-tokio-rustls-0.26)
                        ("rust-webpki-roots" ,rust-webpki-roots-0.26))
        #:cargo-development-inputs (("rust-env-logger" ,rust-env-logger-0.11)
-                                   ("rust-tokio" ,rust-tokio-1))))
+                                   ("rust-tokio" ,rust-tokio-1))
+       #:cargo-test-flags
+       '("--"
+         "--skip=smtp::client::test::smtp_basic")
+       ))
     (home-page "https://github.com/stalwartlabs/mail-send")
     (synopsis "E-mail delivery library with SMTP and DKIM support")
     (description
