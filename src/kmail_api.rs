@@ -18,7 +18,7 @@ pub struct KMailApi {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ListAliasesData {
-    enable_alias: i8,
+    enabled_alias: i8,
     aliases: Vec<String>,
 }
 

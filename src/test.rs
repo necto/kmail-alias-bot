@@ -80,7 +80,7 @@ async fn test_api_list_aliases() {
 {
     "result":"success",
     "data":{
-        "enable_alias":1,
+        "enabled_alias":1,
         "aliases":[
             "aaa", "bbb", "ccc"
         ]
@@ -308,7 +308,7 @@ async fn test_list_aliases_success() {
 {
     "result":"success",
     "data":{
-        "enable_alias":1,
+        "enabled_alias":1,
         "aliases":[
             "aaa", "bbb", "ccc"
         ]
@@ -567,7 +567,7 @@ async fn test_list_aliases_inconsistent_response_error_and_data() {
         ]
     },
     "data":{
-        "enable_alias":1,
+        "enabled_alias":1,
         "aliases":[
             "aaa", "bbb", "ccc"
         ]
